@@ -1,0 +1,31 @@
+{
+  "name": "crestfolio",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Crestfolio - a personal Indian market research operating system for mutual funds, equities, commodities, and macro research.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "seed": "tsx scripts/seed.ts",
+    "sync:live": "tsx scripts/sync-live.ts"
+  },
+  "dependencies": {
+    "adm-zip": "^0.6.0",
+    "lightweight-charts": "^5.2.0",
+    "lucide-react": "^0.539.0",
+    "next": "^15.4.5",
+    "pdfkit": "^0.17.2",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "@types/pdfkit": "^0.17.1",
+    "@types/react": "^19.1.10",
+    "@types/react-dom": "^19.1.7",
+    "tsx": "^4.23.12",
+    "typescript": "^5.9.2"
+  }
+}
