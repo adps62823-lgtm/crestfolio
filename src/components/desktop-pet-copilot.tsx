@@ -17,7 +17,7 @@ import {
   Globe,
 } from "lucide-react";
 import { FormattedMarkdown } from "./formatted-markdown";
-import { createVoiceRecognizer } from "@/lib/speech";
+import { createVoiceRecognizer, speakText } from "@/lib/speech";
 
 const IDLE_INSIGHTS = [
   "Nifty 50 TRI momentum score is holding strong at 78/100.",
@@ -83,6 +83,14 @@ export function DesktopPetCopilot() {
     stopAudio();
     setIsSpeaking(true);
 
+    const fallbackToWebSpeech = () => {
+      speakText(text, {
+        lang: isHindi ? "hi-IN" : "en-IN",
+        onStart: () => setIsSpeaking(true),
+        onEnd: () => setIsSpeaking(false),
+      });
+    };
+
     try {
       const res = await fetch("/api/ai/tts", {
         method: "POST",
@@ -97,15 +105,21 @@ export function DesktopPetCopilot() {
         audioRef.current = audio;
 
         audio.onended = () => setIsSpeaking(false);
-        audio.onerror = () => setIsSpeaking(false);
+        audio.onerror = () => {
+          setIsSpeaking(false);
+          fallbackToWebSpeech();
+        };
 
-        await audio.play();
+        await audio.play().catch((playErr) => {
+          console.warn("Audio play prevented or failed, using SpeechSynthesis:", playErr);
+          fallbackToWebSpeech();
+        });
       } else {
-        setIsSpeaking(false);
+        fallbackToWebSpeech();
       }
     } catch (err) {
-      console.warn("Edge TTS playback failed:", err);
-      setIsSpeaking(false);
+      console.warn("TTS API failed, falling back to Web Speech API:", err);
+      fallbackToWebSpeech();
     }
   };
 
