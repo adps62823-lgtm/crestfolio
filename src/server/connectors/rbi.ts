@@ -1,30 +1,13 @@
-import { getDb } from "../db";
+import { query } from "../db";
 import { fetchText, isoNow, parseNumber, stableId, upsertSourceRun } from "./shared";
 
 const RBI_CURRENT = "https://m.rbi.org.in/scripts/bs_viewcontent.aspx?Id=426";
-
-function matchValue(text: string, label: RegExp) {
-  const match = text.match(label);
-  if (!match) return null;
-  return parseNumber(match[1]);
-}
 
 export async function syncRbiRates() {
   const startedAt = isoNow();
   try {
     const html = await fetchText(RBI_CURRENT);
     const text = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
-    const db = getDb();
-    const insertMacro = db.prepare(`
-      INSERT INTO live_macro (id, source_key, metric, value, unit, as_of, notes, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(id) DO UPDATE SET
-        value = excluded.value,
-        unit = excluded.unit,
-        as_of = excluded.as_of,
-        notes = excluded.notes,
-        updated_at = excluded.updated_at
-    `);
 
     const metrics = [
       ["policy_repo_rate", /Repo Rate\s*\|\s*:\s*([\d.]+)/i, "%"],
@@ -44,26 +27,44 @@ export async function syncRbiRates() {
     for (const [metric, regex, unit] of metrics) {
       const value = text.match(regex)?.[1];
       if (!value) continue;
-      insertMacro.run(
-        stableId("rbi", metric),
-        "rbi",
-        metric,
-        value,
-        unit,
-        new Date().toISOString(),
-        "Current RBI rates page snapshot",
-        isoNow(),
+      await query(
+        `
+        INSERT INTO live_macro (id, source_key, metric, value, unit, as_of, notes, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        ON CONFLICT(id) DO UPDATE SET
+          value = EXCLUDED.value,
+          unit = EXCLUDED.unit,
+          as_of = EXCLUDED.as_of,
+          notes = EXCLUDED.notes,
+          updated_at = EXCLUDED.updated_at
+      `,
+        [
+          stableId("rbi", metric),
+          "rbi",
+          metric,
+          value,
+          unit,
+          new Date().toISOString(),
+          "Current RBI rates page snapshot",
+          isoNow(),
+        ],
       );
       count += 1;
     }
 
-    db.prepare(`
-      UPDATE assets
-      SET last_price = ?, updated_at = ?
-      WHERE symbol = 'USDINR'
-    `).run(parseNumber(text.match(/INR \/ 1 USD\s*\|\s*:\s*([\d.]+)/i)?.[1]) ?? 0, isoNow());
+    const usdInrVal = parseNumber(text.match(/INR \/ 1 USD\s*\|\s*:\s*([\d.]+)/i)?.[1]) ?? 0;
+    if (usdInrVal > 0) {
+      await query(
+        `
+        UPDATE assets
+        SET last_price = $1, updated_at = $2
+        WHERE symbol = 'USDINR'
+      `,
+        [usdInrVal, isoNow()],
+      );
+    }
 
-    upsertSourceRun({
+    await upsertSourceRun({
       sourceKey: "rbi",
       status: "success",
       message: `Captured ${count} RBI market metrics`,
@@ -79,7 +80,7 @@ export async function syncRbiRates() {
       recordsCount: count,
     };
   } catch (error) {
-    upsertSourceRun({
+    await upsertSourceRun({
       sourceKey: "rbi",
       status: "failed",
       message: error instanceof Error ? error.message : "RBI sync failed",

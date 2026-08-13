@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSettings } from "@/server/repository";
-import { getDb } from "@/server/db";
+import { query } from "@/server/db";
 
 export async function GET() {
   const settings = await getSettings();
@@ -9,14 +9,16 @@ export async function GET() {
 
 export async function PATCH(request: Request) {
   const body = (await request.json()) as Record<string, string>;
-  const db = getDb();
-  const stmt = db.prepare(`
-    INSERT INTO settings (key, value)
-    VALUES (?, ?)
-    ON CONFLICT(key) DO UPDATE SET value = excluded.value
-  `);
-
-  Object.entries(body).forEach(([key, value]) => stmt.run(key, value));
+  for (const [key, value] of Object.entries(body)) {
+    await query(
+      `
+      INSERT INTO settings (key, value)
+      VALUES ($1, $2)
+      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+    `,
+      [key, value],
+    );
+  }
   const settings = await getSettings();
   return NextResponse.json(settings);
 }

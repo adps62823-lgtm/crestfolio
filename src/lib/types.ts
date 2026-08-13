@@ -191,6 +191,20 @@ export type SourceRun = {
   recordsCount: number;
 };
 
+export type SchemeOverlapResult = {
+  schemeA: { slug: string; name: string; symbol: string };
+  schemeB: { slug: string; name: string; symbol: string };
+  overlapPercentage: number;
+  commonHoldings: Array<{ companyName: string; weightA: number; weightB: number }>;
+  uniqueToA: string[];
+  uniqueToB: string[];
+};
+
+export type FormulaScreenRequest = {
+  formula: string;
+  assetClass?: AssetClass | "all";
+};
+
 export type LiveOverview = {
   amfiLatest: Array<{
     schemeCode: string;
@@ -251,3 +265,4 @@ export type LiveOverview = {
   }>;
   sourceRuns: SourceRun[];
 };
+

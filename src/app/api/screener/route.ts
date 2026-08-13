@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { listAssets } from "@/server/repository";
+import { executeFormulaScreen } from "@/server/formula";
 import type { ScreenerFilters } from "@/lib/types";
+
+export const dynamic = "force-dynamic";
 
 function numberParam(value: string | null) {
   if (!value) return undefined;
@@ -10,9 +13,17 @@ function numberParam(value: string | null) {
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
+  const formula = url.searchParams.get("formula");
+  const assetClass = url.searchParams.get("assetClass") ?? "all";
+
+  if (formula) {
+    const assets = await executeFormulaScreen(formula, assetClass);
+    return NextResponse.json({ assets });
+  }
+
   const filters: ScreenerFilters = {
     query: url.searchParams.get("query") ?? undefined,
-    assetClass: (url.searchParams.get("assetClass") as ScreenerFilters["assetClass"]) ?? "all",
+    assetClass: (assetClass as ScreenerFilters["assetClass"]) ?? "all",
     sector: url.searchParams.get("sector") ?? "all",
     minTrendScore: numberParam(url.searchParams.get("minTrendScore")),
     minQualityScore: numberParam(url.searchParams.get("minQualityScore")),

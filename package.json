@@ -12,11 +12,13 @@
     "sync:live": "tsx scripts/sync-live.ts"
   },
   "dependencies": {
+    "@types/pg": "^8.21.0",
     "adm-zip": "^0.6.0",
     "lightweight-charts": "^5.2.0",
     "lucide-react": "^0.539.0",
     "next": "^15.4.5",
     "pdfkit": "^0.17.2",
+    "pg": "^8.23.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
   },

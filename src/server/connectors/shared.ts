@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { getDb } from "../db";
+import { query } from "../db";
 
 export type SyncOutcome = {
   sourceKey: string;
@@ -99,7 +99,7 @@ export function parseDate(value: string | undefined | null) {
   return parsed.toISOString();
 }
 
-export function upsertSourceRun(run: {
+export async function upsertSourceRun(run: {
   sourceKey: string;
   status: "success" | "partial" | "failed";
   message: string;
@@ -107,20 +107,20 @@ export function upsertSourceRun(run: {
   startedAt: string;
   finishedAt: string;
 }) {
-  const db = getDb();
-  db.prepare(
+  await query(
     `
       INSERT INTO source_runs (id, source_key, started_at, finished_at, status, message, records_count)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
     `,
-  ).run(
-    makeId("run"),
-    run.sourceKey,
-    run.startedAt,
-    run.finishedAt,
-    run.status,
-    run.message,
-    run.recordsCount,
+    [
+      makeId("run"),
+      run.sourceKey,
+      run.startedAt,
+      run.finishedAt,
+      run.status,
+      run.message,
+      run.recordsCount,
+    ],
   );
 }
 

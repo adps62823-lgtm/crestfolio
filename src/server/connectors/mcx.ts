@@ -1,4 +1,4 @@
-import { getDb } from "../db";
+import { query } from "../db";
 import {
   fetchText,
   isoNow,
@@ -15,62 +15,63 @@ export async function syncMcxData() {
   const startedAt = isoNow();
   try {
     const [spotHtml, histHtml] = await Promise.all([fetchText(MCX_SPOT), fetchText(MCX_HISTORICAL)]);
-    const db = getDb();
-    const insertSpot = db.prepare(`
-      INSERT INTO live_mcx_spot (
-        id, commodity, location, spot_price, up_down, as_of, session, updated_at
-      ) VALUES (
-        @id, @commodity, @location, @spotPrice, @upDown, @asOf, @session, @updatedAt
-      )
-      ON CONFLICT(id) DO UPDATE SET
-        commodity = excluded.commodity,
-        location = excluded.location,
-        spot_price = excluded.spot_price,
-        up_down = excluded.up_down,
-        as_of = excluded.as_of,
-        session = excluded.session,
-        updated_at = excluded.updated_at
-    `);
     const rows = parseTableRows(spotHtml);
     let count = 0;
     for (const row of rows) {
       if (row.length < 4) continue;
       const commodity = row[0];
       if (/commodity/i.test(commodity)) continue;
-      insertSpot.run({
-        id: stableId("mcx", commodity, row[2] ?? "India"),
-        commodity,
-        location: row[2] ?? "India",
-        spotPrice: parseNumber(row[3]),
-        upDown: row[4] ?? "",
-        asOf: new Date().toISOString(),
-        session: "public-page",
-        updatedAt: isoNow(),
-      });
+      const id = stableId("mcx", commodity, row[2] ?? "India");
+      const location = row[2] ?? "India";
+      const spotPrice = parseNumber(row[3]);
+      const upDown = row[4] ?? "";
+      const asOf = new Date().toISOString();
+      const session = "public-page";
+      const updatedAt = isoNow();
+
+      await query(
+        `
+        INSERT INTO live_mcx_spot (
+          id, commodity, location, spot_price, up_down, as_of, session, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        ON CONFLICT(id) DO UPDATE SET
+          commodity = EXCLUDED.commodity,
+          location = EXCLUDED.location,
+          spot_price = EXCLUDED.spot_price,
+          up_down = EXCLUDED.up_down,
+          as_of = EXCLUDED.as_of,
+          session = EXCLUDED.session,
+          updated_at = EXCLUDED.updated_at
+      `,
+        [id, commodity, location, spotPrice, upDown, asOf, session, updatedAt],
+      );
       count += 1;
     }
 
-    db.prepare(`
+    await query(
+      `
       INSERT INTO live_macro (id, source_key, metric, value, unit, as_of, notes, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       ON CONFLICT(id) DO UPDATE SET
-        value = excluded.value,
-        unit = excluded.unit,
-        as_of = excluded.as_of,
-        notes = excluded.notes,
-        updated_at = excluded.updated_at
-    `).run(
-      stableId("mcxmacro", "historical_page_status"),
-      "mcx",
-      "historical_page_status",
-      "available",
-      "status",
-      new Date().toISOString(),
-      `Historical data page fetched successfully. ${histHtml.includes("Historical Data") ? "Official page confirmed." : "Historical page content parsed with fallback."}`,
-      isoNow(),
+        value = EXCLUDED.value,
+        unit = EXCLUDED.unit,
+        as_of = EXCLUDED.as_of,
+        notes = EXCLUDED.notes,
+        updated_at = EXCLUDED.updated_at
+    `,
+      [
+        stableId("mcxmacro", "historical_page_status"),
+        "mcx",
+        "historical_page_status",
+        "available",
+        "status",
+        new Date().toISOString(),
+        `Historical data page fetched successfully. ${histHtml.includes("Historical Data") ? "Official page confirmed." : "Historical page content parsed with fallback."}`,
+        isoNow(),
+      ],
     );
 
-    upsertSourceRun({
+    await upsertSourceRun({
       sourceKey: "mcx",
       status: "partial",
       message: `Captured ${count} public MCX spot rows and historical page status`,
@@ -86,7 +87,7 @@ export async function syncMcxData() {
       recordsCount: count,
     };
   } catch (error) {
-    upsertSourceRun({
+    await upsertSourceRun({
       sourceKey: "mcx",
       status: "failed",
       message: error instanceof Error ? error.message : "MCX sync failed",

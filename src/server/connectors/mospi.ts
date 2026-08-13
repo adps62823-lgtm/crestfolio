@@ -1,6 +1,6 @@
 import https from "node:https";
-import { getDb } from "../db";
-import { fetchText, isoNow, stableId, upsertSourceRun } from "./shared";
+import { query } from "../db";
+import { isoNow, stableId, upsertSourceRun } from "./shared";
 
 const MOSPI_CPI = "https://cpi.mospi.gov.in/";
 const MOSPI_DASHBOARD = "https://www.mospi.gov.in/dashboard/dashboard/cpi";
@@ -51,18 +51,31 @@ export async function syncMospiCpi() {
       fetchInsecureText(MOSPI_DASHBOARD),
     ]);
     const combined = `${cpiHtml} ${dashboardHtml}`.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
-    const db = getDb();
 
-    const insertMacro = db.prepare(`
-      INSERT INTO live_macro (id, source_key, metric, value, unit, as_of, notes, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(id) DO UPDATE SET
-        value = excluded.value,
-        unit = excluded.unit,
-        as_of = excluded.as_of,
-        notes = excluded.notes,
-        updated_at = excluded.updated_at
-    `);
+    const upsertMacro = async (
+      id: string,
+      sourceKey: string,
+      metric: string,
+      value: string,
+      unit: string,
+      asOf: string,
+      notes: string,
+      updatedAt: string,
+    ) => {
+      await query(
+        `
+        INSERT INTO live_macro (id, source_key, metric, value, unit, as_of, notes, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        ON CONFLICT(id) DO UPDATE SET
+          value = EXCLUDED.value,
+          unit = EXCLUDED.unit,
+          as_of = EXCLUDED.as_of,
+          notes = EXCLUDED.notes,
+          updated_at = EXCLUDED.updated_at
+      `,
+        [id, sourceKey, metric, value, unit, asOf, notes, updatedAt],
+      );
+    };
 
     const inflation =
       combined.match(/inflation[^%]{0,120}?(\d+(?:\.\d+)?)\s*%/i)?.[1] ??
@@ -76,7 +89,7 @@ export async function syncMospiCpi() {
 
     let count = 0;
     if (inflation) {
-      insertMacro.run(
+      await upsertMacro(
         stableId("mospi", "cpi_general"),
         "mospi",
         "cpi_general",
@@ -89,7 +102,7 @@ export async function syncMospiCpi() {
       count += 1;
     }
     if (foodInflation) {
-      insertMacro.run(
+      await upsertMacro(
         stableId("mospi", "cpi_food"),
         "mospi",
         "cpi_food",
@@ -102,7 +115,7 @@ export async function syncMospiCpi() {
       count += 1;
     }
 
-    insertMacro.run(
+    await upsertMacro(
       stableId("mospi", "dashboard_snapshot"),
       "mospi",
       "dashboard_snapshot",
@@ -114,7 +127,7 @@ export async function syncMospiCpi() {
     );
     count += 1;
 
-    upsertSourceRun({
+    await upsertSourceRun({
       sourceKey: "mospi",
       status: inflation || foodInflation ? "success" : "partial",
       message:
@@ -136,7 +149,7 @@ export async function syncMospiCpi() {
       recordsCount: count,
     };
   } catch (error) {
-    upsertSourceRun({
+    await upsertSourceRun({
       sourceKey: "mospi",
       status: "failed",
       message: error instanceof Error ? error.message : "MoSPI sync failed",

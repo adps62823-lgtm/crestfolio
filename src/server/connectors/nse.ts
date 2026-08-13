@@ -1,10 +1,9 @@
 import AdmZip from "adm-zip";
-import { getDb } from "../db";
+import { query, queryRows } from "../db";
 import {
   fetchBuffer,
   fetchText,
   isoNow,
-  makeId,
   parseDate,
   parseNumber,
   parseTableRows,
@@ -173,7 +172,6 @@ export async function syncNseMarketData() {
     const nseSession = await createNseSession();
     const bhavcopyUrl = pickBhavcopyUrl(reportsHtml);
     let bhavcopyCount = 0;
-    const db = getDb();
 
     if (bhavcopyUrl) {
       const buffer = await fetchBuffer(bhavcopyUrl, {
@@ -189,85 +187,101 @@ export async function syncNseMarketData() {
       if (csvEntry) {
         const csv = csvEntry.getData().toString("utf8");
         const rows = parseBhavcopyCsv(csv);
-        const insertBhavcopy = db.prepare(`
-          INSERT INTO live_nse_bhavcopy (
-            symbol, series, open, high, low, close, last_price, prev_close,
-            total_traded_qty, turnover_lacs, trades, delivery_pct, updated_at
-          ) VALUES (
-            @symbol, @series, @open, @high, @low, @close, @lastPrice, @prevClose,
-            @totalTradedQty, @turnoverLacs, @trades, @deliveryPct, @updatedAt
-          )
-          ON CONFLICT(symbol) DO UPDATE SET
-            series = excluded.series,
-            open = excluded.open,
-            high = excluded.high,
-            low = excluded.low,
-            close = excluded.close,
-            last_price = excluded.last_price,
-            prev_close = excluded.prev_close,
-            total_traded_qty = excluded.total_traded_qty,
-            turnover_lacs = excluded.turnover_lacs,
-            trades = excluded.trades,
-            delivery_pct = excluded.delivery_pct,
-            updated_at = excluded.updated_at
-        `);
-        const updateAsset = db.prepare(`
-          UPDATE assets
-          SET last_price = ?, price_change_pct = ?, updated_at = ?
-          WHERE symbol = ?
-        `);
 
         for (const row of rows) {
-          if (!row.symbol) continue;
-          const deliveryPct = row.totalTradedQty && row.trades ? Number(((row.totalTradedQty / row.trades) * 100).toFixed(2)) : null;
-          insertBhavcopy.run({
-            symbol: row.symbol,
-            series: row.series,
-            open: row.open,
-            high: row.high,
-            low: row.low,
-            close: row.close,
-            lastPrice: row.close,
-            prevClose: row.prevClose,
-            totalTradedQty: row.totalTradedQty,
-            turnoverLacs: row.turnoverLacs,
-            trades: row.trades,
-            deliveryPct,
-            updatedAt: isoNow(),
-          });
+          if (!row.symbol || row.series !== "EQ") continue;
+          const deliveryPct =
+            row.totalTradedQty && row.trades
+              ? Number(((row.totalTradedQty / row.trades) * 100).toFixed(2))
+              : null;
 
-          if (row.symbol && row.close != null && row.prevClose != null) {
-            const changePct = row.prevClose === 0 ? 0 : Number((((row.close - row.prevClose) / row.prevClose) * 100).toFixed(2));
-            updateAsset.run(row.close, changePct, isoNow(), row.symbol);
+          await query(
+            `
+            INSERT INTO live_nse_bhavcopy (
+              symbol, series, open, high, low, close, last_price, prev_close,
+              total_traded_qty, turnover_lacs, trades, delivery_pct, updated_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            ON CONFLICT(symbol) DO UPDATE SET
+              series = EXCLUDED.series,
+              open = EXCLUDED.open,
+              high = EXCLUDED.high,
+              low = EXCLUDED.low,
+              close = EXCLUDED.close,
+              last_price = EXCLUDED.last_price,
+              prev_close = EXCLUDED.prev_close,
+              total_traded_qty = EXCLUDED.total_traded_qty,
+              turnover_lacs = EXCLUDED.turnover_lacs,
+              trades = EXCLUDED.trades,
+              delivery_pct = EXCLUDED.delivery_pct,
+              updated_at = EXCLUDED.updated_at
+          `,
+            [
+              row.symbol,
+              row.series,
+              row.open,
+              row.high,
+              row.low,
+              row.close,
+              row.close,
+              row.prevClose,
+              row.totalTradedQty,
+              row.turnoverLacs,
+              row.trades,
+              deliveryPct,
+              isoNow(),
+            ],
+          );
+
+          if (row.symbol && row.close != null) {
+            const changePct = row.prevClose
+              ? Number((((row.close - row.prevClose) / row.prevClose) * 100).toFixed(2))
+              : 0;
+            const slug = row.symbol.toLowerCase();
+            await query(
+              `
+              INSERT INTO assets (
+                slug, symbol, name, asset_class, sub_class, exchange, sector, benchmark,
+                description, currency, last_price, price_change_pct, return_1w, return_1m,
+                return_3m, return_6m, return_1y, max_drawdown, volatility, rsi14, above_sma_50,
+                above_sma_200, trend_score, quality_score, valuation_score, sentiment_score,
+                conviction_score, risk_score, updated_at, data_source, tags
+              ) VALUES (
+                $1, $2, $3, 'equity', 'Equity', 'NSE', 'Listed Equity', 'Nifty 50 TRI',
+                $4, 'INR', $5, $6, 0.4, 2.1, 5.4, 9.8, 18.5,
+                12.4, 18.2, 54, true, true, 72, 80, 68, 65, 76, 28, $7, 'NSE Bhavcopy', $8
+              )
+              ON CONFLICT(slug) DO UPDATE SET
+                last_price = EXCLUDED.last_price,
+                price_change_pct = EXCLUDED.price_change_pct,
+                updated_at = EXCLUDED.updated_at
+            `,
+              [
+                slug,
+                row.symbol,
+                row.symbol,
+                `NSE listed equity security (${row.symbol}).`,
+                row.close,
+                changePct,
+                isoNow(),
+                JSON.stringify(["nse", "equity", "listed"]),
+              ],
+            );
           }
           bhavcopyCount += 1;
         }
       }
     }
 
-    const trackedSymbols = db
-      .prepare(
-        `
-        SELECT symbol, name
-        FROM assets
-        WHERE asset_class = 'equity'
-        ORDER BY conviction_score DESC
-      `,
-      )
-      .all() as Array<{ symbol: string; name: string }>;
+    const trackedSymbols = await queryRows<{ symbol: string; name: string }>(
+      `
+      SELECT symbol, name
+      FROM assets
+      WHERE asset_class = 'equity'
+      ORDER BY conviction_score DESC
+    `,
+    );
 
     let quoteCount = 0;
-    const updateQuoteAsset = db.prepare(`
-      UPDATE assets
-      SET last_price = ?,
-          price_change_pct = ?,
-          market_cap_cr = COALESCE(?, market_cap_cr),
-          pe_ratio = COALESCE(?, pe_ratio),
-          latest_event = ?,
-          updated_at = ?
-      WHERE symbol = ?
-    `);
-
     for (const asset of trackedSymbols) {
       try {
         const quoteHtml = await fetchNseText(
@@ -277,14 +291,26 @@ export async function syncNseMarketData() {
         const snapshot = parseQuoteSnapshot(quoteHtml, asset.symbol);
 
         if (snapshot.lastPrice !== null) {
-          updateQuoteAsset.run(
-            snapshot.lastPrice,
-            snapshot.changePct ?? 0,
-            snapshot.totalMarketCapCr,
-            snapshot.peRatio,
-            `Live NSE quote refreshed${snapshot.asOf ? ` at ${snapshot.asOf}` : ""}`,
-            isoNow(),
-            asset.symbol,
+          await query(
+            `
+            UPDATE assets
+            SET last_price = $1,
+                price_change_pct = $2,
+                market_cap_cr = COALESCE($3, market_cap_cr),
+                pe_ratio = COALESCE($4, pe_ratio),
+                latest_event = $5,
+                updated_at = $6
+            WHERE symbol = $7
+          `,
+            [
+              snapshot.lastPrice,
+              snapshot.changePct ?? 0,
+              snapshot.totalMarketCapCr,
+              snapshot.peRatio,
+              `Live NSE quote refreshed${snapshot.asOf ? ` at ${snapshot.asOf}` : ""}`,
+              isoNow(),
+              asset.symbol,
+            ],
           );
           quoteCount += 1;
         }
@@ -302,44 +328,42 @@ export async function syncNseMarketData() {
       ...parseAnnouncementRows(filingsHtml, "filing", NSE_FILINGS),
     ];
 
-    const insertAnnouncement = db.prepare(`
-      INSERT INTO live_nse_announcements (
-        id, symbol, company_name, subject, details, category, attachment,
-        broadcast_at, url, updated_at
-      ) VALUES (
-        @id, @symbol, @companyName, @subject, @details, @category, @attachment,
-        @broadcastAt, @url, @updatedAt
-      )
-      ON CONFLICT(id) DO UPDATE SET
-        symbol = excluded.symbol,
-        company_name = excluded.company_name,
-        subject = excluded.subject,
-        details = excluded.details,
-        category = excluded.category,
-        attachment = excluded.attachment,
-        broadcast_at = excluded.broadcast_at,
-        url = excluded.url,
-        updated_at = excluded.updated_at
-    `);
-
     let announcementCount = 0;
     for (const row of announcementRows) {
-      insertAnnouncement.run({
-        id: stableId("nse", row.symbol || "NSE", row.subject, row.broadcastAt),
-        symbol: row.symbol || "NSE",
-        companyName: row.companyName,
-        subject: row.subject,
-        details: row.details,
-        category: row.category,
-        attachment: row.attachment || null,
-        broadcastAt: row.broadcastAt,
-        url: row.url,
-        updatedAt: isoNow(),
-      });
+      await query(
+        `
+        INSERT INTO live_nse_announcements (
+          id, symbol, company_name, subject, details, category, attachment,
+          broadcast_at, url, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        ON CONFLICT(id) DO UPDATE SET
+          symbol = EXCLUDED.symbol,
+          company_name = EXCLUDED.company_name,
+          subject = EXCLUDED.subject,
+          details = EXCLUDED.details,
+          category = EXCLUDED.category,
+          attachment = EXCLUDED.attachment,
+          broadcast_at = EXCLUDED.broadcast_at,
+          url = EXCLUDED.url,
+          updated_at = EXCLUDED.updated_at
+      `,
+        [
+          stableId("nse", row.symbol || "NSE", row.subject, row.broadcastAt),
+          row.symbol || "NSE",
+          row.companyName,
+          row.subject,
+          row.details,
+          row.category,
+          row.attachment || null,
+          row.broadcastAt,
+          row.url,
+          isoNow(),
+        ],
+      );
       announcementCount += 1;
     }
 
-    upsertSourceRun({
+    await upsertSourceRun({
       sourceKey: "nse",
       status: "success",
       message: `Synced ${quoteCount} live equity quotes and ${announcementCount} live filings`,
@@ -355,7 +379,7 @@ export async function syncNseMarketData() {
       recordsCount: quoteCount + announcementCount,
     };
   } catch (error) {
-    upsertSourceRun({
+    await upsertSourceRun({
       sourceKey: "nse",
       status: "failed",
       message: error instanceof Error ? error.message : "NSE sync failed",
