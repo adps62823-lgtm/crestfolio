@@ -21,6 +21,9 @@ import {
   Percent,
   SlidersHorizontal,
   Compass,
+  Menu,
+  X,
+  Search,
 } from "lucide-react";
 import { CommandPalette } from "./command-palette";
 import { DesktopPetCopilot } from "./desktop-pet-copilot";
@@ -45,6 +48,7 @@ const navItems = [
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [isCommandOpen, setIsCommandOpen] = useState(false);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
 
   useEffect(() => {
@@ -57,6 +61,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("open-command-palette", handleOpen);
   }, []);
 
+  // Close mobile drawer on route navigation
+  useEffect(() => {
+    setIsMobileOpen(false);
+  }, [pathname]);
+
   const toggleTheme = () => {
     const nextTheme = theme === "dark" ? "light" : "dark";
     setTheme(nextTheme);
@@ -68,7 +77,51 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="app-shell">
       <CommandPalette isOpen={isCommandOpen} onClose={() => setIsCommandOpen(false)} />
 
-      <aside className="sidebar">
+      {/* Mobile Top Header */}
+      <div className="mobile-header">
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <button
+            className="button button-subtle"
+            style={{ padding: 6 }}
+            onClick={() => setIsMobileOpen(!isMobileOpen)}
+            aria-label="Toggle navigation menu"
+          >
+            {isMobileOpen ? <X size={22} /> : <Menu size={22} />}
+          </button>
+          <div className="brand-mark" style={{ width: 26, height: 26 }} />
+          <span style={{ fontWeight: 700, fontSize: "1.05rem" }}>Crestfolio</span>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <button
+            className="button button-subtle"
+            style={{ padding: 6 }}
+            onClick={() => setIsCommandOpen(true)}
+            aria-label="Search"
+          >
+            <Search size={18} />
+          </button>
+          <button
+            className="button button-subtle"
+            style={{ padding: 6 }}
+            onClick={toggleTheme}
+            aria-label="Toggle Theme"
+          >
+            {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile Drawer Overlay Backdrop */}
+      {isMobileOpen && (
+        <div
+          className="mobile-backdrop"
+          onClick={() => setIsMobileOpen(false)}
+        />
+      )}
+
+      {/* Sidebar Navigation (Desktop & Mobile Drawer) */}
+      <aside className={`sidebar ${isMobileOpen ? "mobile-open" : ""}`}>
         <div className="brand">
           <div className="brand-mark" />
           <div>
@@ -116,15 +169,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       <div className="content">
-        <div className="topbar">
+        <div className="topbar desktop-only-topbar">
           <div className="topbar-card" style={{ cursor: "pointer" }} onClick={() => setIsCommandOpen(true)}>
             <Terminal size={14} style={{ color: "var(--primary)" }} />
-            <span>Search assets or commands (Ctrl+K)</span>
+            <span>Search 16,400+ assets or commands (Ctrl+K)</span>
           </div>
 
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <span className="pill pill-active">2,125 NSE Stocks</span>
             <span className="pill pill-active">14,269 AMFI Schemes</span>
-            <span className="pill">NSE Bhavcopy Ready</span>
             <span className="pill">MCX Spot Live</span>
           </div>
         </div>

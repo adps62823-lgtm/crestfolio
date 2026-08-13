@@ -204,8 +204,8 @@ export function DesktopPetCopilot() {
         <div
           className="fade-up"
           style={{
-            width: 420,
-            height: 550,
+            width: "min(420px, calc(100vw - 32px))",
+            height: "min(550px, calc(100vh - 100px))",
             marginBottom: 12,
             display: "flex",
             flexDirection: "column",

@@ -57,13 +57,15 @@ export function CommandPalette({ isOpen, onClose }: Props) {
       style={{
         position: "fixed",
         inset: 0,
-        backgroundColor: "rgba(3, 7, 12, 0.85)",
-        backdropFilter: "blur(12px)",
+        backgroundColor: "rgba(0, 0, 0, 0.6)",
+        backdropFilter: "blur(8px)",
         zIndex: 999,
         display: "flex",
         alignItems: "flex-start",
         justifyContent: "center",
         paddingTop: "10vh",
+        paddingLeft: 16,
+        paddingRight: 16,
       }}
       onClick={onClose}
     >
@@ -72,10 +74,11 @@ export function CommandPalette({ isOpen, onClose }: Props) {
         style={{
           width: "100%",
           maxWidth: 680,
-          borderRadius: 20,
-          border: "1px solid var(--border-strong)",
-          backgroundColor: "#07111c",
-          boxShadow: "0 25px 80px rgba(0,0,0,0.8)",
+          borderRadius: 16,
+          border: "1px solid var(--border)",
+          backgroundColor: "var(--panel)",
+          color: "var(--text)",
+          boxShadow: "var(--shadow)",
           overflow: "hidden",
           padding: 0,
         }}
@@ -97,7 +100,7 @@ export function CommandPalette({ isOpen, onClose }: Props) {
             style={{
               border: "none",
               background: "transparent",
-              fontSize: "1.1rem",
+              fontSize: "1.05rem",
               padding: 0,
               color: "var(--text)",
               boxShadow: "none",
@@ -137,7 +140,7 @@ export function CommandPalette({ isOpen, onClose }: Props) {
         <div style={{ padding: "16px 20px", maxHeight: 400, overflowY: "auto" }}>
           {query.startsWith("/") ? (
             <div className="stack">
-              <div className="footer-note" style={{ marginBottom: 4 }}>NAVIGATION COMMANDS</div>
+              <div className="muted" style={{ fontSize: "0.78rem", fontWeight: 600, letterSpacing: "0.05em", marginBottom: 4 }}>NAVIGATION COMMANDS</div>
               <div
                 className="asset-card"
                 style={{ cursor: "pointer" }}
@@ -154,7 +157,7 @@ export function CommandPalette({ isOpen, onClose }: Props) {
                 onClick={() => { router.push("/overlap"); onClose(); }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <Layers size={16} style={{ color: "var(--accent-2)" }} />
+                  <Layers size={16} style={{ color: "var(--primary)" }} />
                   <strong>/overlap</strong> - Mutual Fund Scheme Overlap Analyzer
                 </div>
               </div>
@@ -164,14 +167,14 @@ export function CommandPalette({ isOpen, onClose }: Props) {
                 onClick={() => { router.push("/screener"); onClose(); }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <Filter size={16} style={{ color: "var(--accent-3)" }} />
+                  <Filter size={16} style={{ color: "var(--warning)" }} />
                   <strong>/screener</strong> - Screener Studio & Custom Formula Engine
                 </div>
               </div>
             </div>
           ) : results.length > 0 ? (
             <div className="stack">
-              <div className="footer-note" style={{ marginBottom: 4 }}>RESEARCH ENTITIES ({results.length})</div>
+              <div className="muted" style={{ fontSize: "0.78rem", fontWeight: 600, letterSpacing: "0.05em", marginBottom: 4 }}>RESEARCH ENTITIES ({results.length})</div>
               {results.map((asset) => (
                 <div
                   key={asset.slug}
@@ -203,7 +206,7 @@ export function CommandPalette({ isOpen, onClose }: Props) {
             </div>
           ) : (
             <div className="stack">
-              <div className="footer-note">QUICK SHORTCUTS & DESK COMMANDS</div>
+              <div className="muted" style={{ fontSize: "0.78rem", fontWeight: 600, letterSpacing: "0.05em" }}>QUICK SHORTCUTS & DESK COMMANDS</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 6 }}>
                 <button
                   className="button"
@@ -240,9 +243,9 @@ export function CommandPalette({ isOpen, onClose }: Props) {
 
         <div
           style={{
-            padding: "10px 20px",
+            padding: "12px 20px",
             borderTop: "1px solid var(--border)",
-            backgroundColor: "rgba(0,0,0,0.2)",
+            backgroundColor: "var(--bg-subtle)",
             display: "flex",
             justifyContent: "space-between",
             fontSize: "0.78rem",
