@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { TradingViewSymbolOverview } from "./tradingview/symbol-overview";
+import { TradingViewMiniChart } from "./tradingview/mini-chart";
 import { TradingViewFinancials } from "./tradingview/financials-widget";
 import type { AssetRecord } from "@/lib/types";
 import { Maximize2, Grid, Layers, BarChart2, DollarSign } from "lucide-react";
@@ -13,7 +13,8 @@ type Props = {
 export function MultiChartMatrix({ allAssets }: Props) {
   const [layout, setLayout] = useState<"1x1" | "2x1" | "2x2">("2x2");
   const [selectedSlugs, setSelectedSlugs] = useState<string[]>([]);
-  const [viewModesMap, setViewModesMap] = useState<Record<number, "overview" | "financials">>({});
+  const [viewModesMap, setViewModesMap] = useState<Record<number, "mini" | "financials">>({});
+  const [timeframesMap, setTimeframesMap] = useState<Record<number, "1D" | "1M" | "3M" | "12M">>({});
 
   useEffect(() => {
     if (allAssets.length > 0 && selectedSlugs.length === 0) {
@@ -40,8 +41,12 @@ export function MultiChartMatrix({ allAssets }: Props) {
     setSelectedSlugs(next);
   }
 
-  function handleViewModeChange(index: number, mode: "overview" | "financials") {
+  function handleViewModeChange(index: number, mode: "mini" | "financials") {
     setViewModesMap((prev) => ({ ...prev, [index]: mode }));
+  }
+
+  function handleTimeframeChange(index: number, tf: "1D" | "1M" | "3M" | "12M") {
+    setTimeframesMap((prev) => ({ ...prev, [index]: tf }));
   }
 
   return (
@@ -51,7 +56,7 @@ export function MultiChartMatrix({ allAssets }: Props) {
           <div>
             <h3>Multi-Chart TradingView Matrix</h3>
             <p className="muted">
-              Side-by-side TradingView Symbol Overview area charts and institutional fundamental data.
+              Side-by-side TradingView Mini Area/Line charts and institutional fundamental data.
             </p>
           </div>
 
@@ -81,7 +86,8 @@ export function MultiChartMatrix({ allAssets }: Props) {
           {Array.from({ length: activeCount }).map((_, idx) => {
             const currentSlug = selectedSlugs[idx] ?? allAssets[idx]?.slug ?? "";
             const currentAsset = allAssets.find((a) => a.slug === currentSlug);
-            const viewMode = viewModesMap[idx] ?? "overview";
+            const viewMode = viewModesMap[idx] ?? "mini";
+            const timeframe = timeframesMap[idx] ?? "12M";
 
             return (
               <div
@@ -91,12 +97,12 @@ export function MultiChartMatrix({ allAssets }: Props) {
                   padding: 14,
                   backgroundColor: "rgba(5, 12, 20, 0.98)",
                   borderColor: "var(--border-strong)",
-                  minHeight: layout === "1x1" ? 600 : 520,
+                  minHeight: layout === "1x1" ? 540 : 420,
                   display: "flex",
                   flexDirection: "column",
                 }}
               >
-                {/* Control Bar: High Contrast Asset Dropdown + View Mode Toggle */}
+                {/* Control Bar: High Contrast Asset Dropdown + View Mode & Timeframe Toggle */}
                 <div
                   style={{
                     display: "flex",
@@ -139,14 +145,30 @@ export function MultiChartMatrix({ allAssets }: Props) {
                     ))}
                   </select>
 
-                  {/* View Mode Toggle: Symbol Overview (Area Chart) vs Financials */}
+                  {/* Timeframe Controls for Mini Area Chart */}
+                  {viewMode === "mini" && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                      {(["1D", "1M", "3M", "12M"] as const).map((tf) => (
+                        <button
+                          key={tf}
+                          className={`button ${timeframe === tf ? "button-primary" : "button-subtle"}`}
+                          style={{ padding: "2px 6px", fontSize: "0.72rem" }}
+                          onClick={() => handleTimeframeChange(idx, tf)}
+                        >
+                          {tf}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* View Mode Toggle: Mini Area Chart vs Financials */}
                   <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                     <button
-                      className={`button ${viewMode === "overview" ? "button-primary" : "button-subtle"}`}
+                      className={`button ${viewMode === "mini" ? "button-primary" : "button-subtle"}`}
                       style={{ padding: "4px 8px", fontSize: "0.78rem" }}
-                      onClick={() => handleViewModeChange(idx, "overview")}
+                      onClick={() => handleViewModeChange(idx, "mini")}
                     >
-                      <BarChart2 size={13} style={{ marginRight: 4 }} /> Symbol Overview (Area)
+                      <BarChart2 size={13} style={{ marginRight: 4 }} /> Mini Area Chart
                     </button>
 
                     <button
@@ -160,11 +182,11 @@ export function MultiChartMatrix({ allAssets }: Props) {
                 </div>
 
                 {/* Main Widget Area */}
-                <div style={{ flex: 1, minHeight: layout === "1x1" ? 460 : 340 }}>
-                  {viewMode === "overview" ? (
-                    <TradingViewSymbolOverview
+                <div style={{ flex: 1, minHeight: layout === "1x1" ? 440 : 340 }}>
+                  {viewMode === "mini" ? (
+                    <TradingViewMiniChart
                       symbol={currentAsset?.symbol || "RELIANCE"}
-                      chartType="area"
+                      dateRange={timeframe}
                       height="100%"
                     />
                   ) : (
