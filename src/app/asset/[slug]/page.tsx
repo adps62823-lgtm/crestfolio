@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AssetChart } from "@/components/asset-chart";
+import { TradingViewChart } from "@/components/trading-view-chart";
 import { AiAssistant } from "@/components/ai-assistant";
 import { ExportButtons } from "@/components/export-buttons";
 import { TechnicalMasterSuite } from "@/components/technical-master-suite";
@@ -69,12 +70,15 @@ export default async function AssetPage({
         </div>
       </section>
 
+      {/* TradingView Advanced Technical Analysis Engine with Drawing Tools */}
+      <TradingViewChart symbol={asset.symbol} assetName={asset.name} height={520} />
+
       <section className="section-grid">
         <AssetChart
           bars={detail.bars}
           events={detail.events}
-          title="Technical Research Chart"
-          subtitle="Candlestick price action, SMA levels, and event markers."
+          title="Lightweight Price Context & Event Markers"
+          subtitle="Candlestick price action, SMA levels, and corporate event markers."
         />
 
         <div className="stack">
