@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { TradingViewChart } from "@/components/trading-view-chart";
+import { AssetChart } from "@/components/asset-chart";
 import { TradingViewTechnicalAnalysis } from "@/components/tradingview/technical-analysis";
 import { TradingViewFinancials } from "@/components/tradingview/financials-widget";
 import { TradingViewCompanyProfile } from "@/components/tradingview/company-profile";
@@ -43,9 +43,14 @@ export default async function AssetPage({
         </div>
       </section>
 
-      {/* Main Technical Chart & TradingView Technical Analysis Gauge */}
+      {/* Main Lightweight Candlestick Research Chart & TradingView Technical Analysis Gauge */}
       <section className="section-grid" style={{ gridTemplateColumns: "2fr 1fr" }}>
-        <TradingViewChart symbol={asset.symbol} assetName={asset.name} height={520} />
+        <AssetChart
+          bars={detail.bars}
+          events={detail.events}
+          title="Technical Research Chart"
+          subtitle="Candlestick price action, SMA levels, and corporate event markers."
+        />
         <TradingViewTechnicalAnalysis symbol={asset.symbol} height={480} />
       </section>
 
