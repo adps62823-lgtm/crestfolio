@@ -91,7 +91,7 @@ export function MultiChartMatrix({ allAssets }: Props) {
                   padding: 14,
                   backgroundColor: "rgba(5, 12, 20, 0.98)",
                   borderColor: "var(--border-strong)",
-                  minHeight: layout === "1x1" ? 540 : 420,
+                  minHeight: layout === "1x1" ? 600 : 520,
                   display: "flex",
                   flexDirection: "column",
                 }}

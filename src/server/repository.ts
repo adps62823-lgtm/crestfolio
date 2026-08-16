@@ -1,6 +1,7 @@
 import { seedDatabase } from "@/server/seed";
 import { query, queryOne, queryRows } from "@/server/db";
 import { fetchLiveYahooAsset } from "@/server/connectors/yahoo";
+import { fetchLiveAssetNews } from "@/server/connectors/news";
 import type {
   AppSettings,
   AssetClass,
@@ -532,12 +533,15 @@ export async function getAssetDetail(slug: string): Promise<AssetDetail | null> 
 
   const asset = toAsset(assetRow);
   const bars = await ensurePriceBars(slug, asset);
-  const news = (
-    await queryRows(
-      "SELECT * FROM news_items WHERE asset_slug = $1 ORDER BY published_at DESC",
-      [slug],
-    )
-  ).map(toNews);
+  let news = await fetchLiveAssetNews(asset.name, asset.symbol);
+  if (news.length === 0) {
+    news = (
+      await queryRows(
+        "SELECT * FROM news_items WHERE asset_slug = $1 ORDER BY published_at DESC",
+        [slug],
+      )
+    ).map(toNews);
+  }
   const events = (
     await queryRows("SELECT * FROM events WHERE asset_slug = $1 ORDER BY event_date DESC", [
       slug,

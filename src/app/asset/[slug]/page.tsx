@@ -3,7 +3,6 @@ import { TradingViewChart } from "@/components/trading-view-chart";
 import { TradingViewTechnicalAnalysis } from "@/components/tradingview/technical-analysis";
 import { TradingViewFinancials } from "@/components/tradingview/financials-widget";
 import { TradingViewCompanyProfile } from "@/components/tradingview/company-profile";
-import { TradingViewNewsTimeline } from "@/components/tradingview/news-timeline";
 import { AiAssistant } from "@/components/ai-assistant";
 import { ExportButtons } from "@/components/export-buttons";
 import { getAssetDetail } from "@/server/repository";
@@ -62,13 +61,67 @@ export default async function AssetPage({
         </div>
 
         {/* TradingView Real-Time Financials & Fundamental Suite */}
-        <TradingViewFinancials symbol={asset.symbol} height={450} />
+        <TradingViewFinancials symbol={asset.symbol} height={480} />
       </section>
 
-      {/* Bottom Section: TradingView Company Profile & Real-Time Company News */}
+      {/* Bottom Section: TradingView Company Profile & Parsed Live Web News */}
       <section className="section-grid">
-        <TradingViewCompanyProfile symbol={asset.symbol} height={420} />
-        <TradingViewNewsTimeline symbol={asset.symbol} height={420} />
+        <TradingViewCompanyProfile symbol={asset.symbol} height={460} />
+
+        <div
+          className="panel"
+          style={{
+            padding: 20,
+            height: "100%",
+            minHeight: 460,
+            display: "flex",
+            flexDirection: "column",
+            wordBreak: "break-word",
+          }}
+        >
+          <h3 style={{ margin: "0 0 12px 0", fontSize: "1.05rem" }}>
+            Real-Time Web News Signals — {asset.name}
+          </h3>
+          <div
+            className="stack"
+            style={{
+              flex: 1,
+              overflowY: "auto",
+              paddingRight: 6,
+              gap: 12,
+            }}
+          >
+            {detail.news.length > 0 ? (
+              detail.news.map((item) => (
+                <div key={item.id} className="asset-card" style={{ padding: 12, borderRadius: 8 }}>
+                  <a
+                    href={item.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ textDecoration: "none", color: "inherit" }}
+                  >
+                    <h4 style={{ margin: "0 0 6px 0", fontSize: "0.95rem", color: "var(--fg)" }}>
+                      {item.headline}
+                    </h4>
+                  </a>
+                  <p style={{ margin: 0, fontSize: "0.82rem", color: "var(--text-muted)", lineHeight: 1.4 }}>
+                    {item.summary}
+                  </p>
+                  <div className="pill-row" style={{ marginTop: 10 }}>
+                    <span className="pill pill-active" style={{ fontSize: "0.72rem" }}>
+                      {item.source}
+                    </span>
+                    <span className="pill" style={{ fontSize: "0.72rem" }}>
+                      {formatCompactDate(item.publishedAt)}
+                    </span>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="muted">No live news signals found for {asset.name}.</p>
+            )}
+          </div>
+        </div>
       </section>
     </main>
   );

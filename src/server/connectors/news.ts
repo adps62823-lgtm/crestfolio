@@ -1,12 +1,8 @@
-// ─────────────────────────────────────────────────────────────────────────
-// News Connector — free public RSS feeds from major Indian financial media.
-// No API key required. Sentiment scoring happens in server/ai.ts (lexicon
-// fallback) or via the configured LLM if available.
-// ─────────────────────────────────────────────────────────────────────────
 import Parser from "rss-parser";
 import { getDb } from "../db";
 import { scoreSentiment } from "../ai";
 import { randomUUID } from "node:crypto";
+import type { NewsItem } from "@/lib/types";
 
 const FEEDS: { source: string; url: string }[] = [
   { source: "Moneycontrol Markets", url: "https://www.moneycontrol.com/rss/marketreports.xml" },
@@ -24,12 +20,42 @@ export async function fetchAllNewsFeeds() {
       const parsed = await parser.parseURL(feed.url);
       results.push({ source: feed.source, items: parsed.items });
     } catch (err) {
-      // Per-feed failure shouldn't kill the whole sync — one dead RSS URL
-      // (media orgs change these more often than exchanges) just gets skipped.
       console.error(`[news] feed failed: ${feed.source}`, err instanceof Error ? err.message : err);
     }
   }
   return results;
+}
+
+export async function fetchLiveAssetNews(assetName: string, symbol: string): Promise<NewsItem[]> {
+  const queryTerm = encodeURIComponent(`${assetName} ${symbol} India stock news`);
+  const googleNewsUrl = `https://news.google.com/rss/search?q=${queryTerm}&hl=en-IN&gl=IN&ceid=IN:en`;
+
+  try {
+    const parsed = await parser.parseURL(googleNewsUrl);
+    if (parsed && parsed.items && parsed.items.length > 0) {
+      return parsed.items.slice(0, 6).map((item, idx) => {
+        const title = item.title || `${assetName} Market Update`;
+        const sentiment = scoreSentiment(title + " " + (item.contentSnippet || ""));
+        return {
+          id: `live_news_${Date.now()}_${idx}`,
+          assetSlug: symbol.toLowerCase(),
+          headline: title,
+          summary: item.contentSnippet || `${assetName} financial market news, earnings, and trading signals.`,
+          source: item.creator || "Live Financial Web News",
+          url: item.link || "#",
+          publishedAt: item.isoDate || item.pubDate || new Date().toISOString(),
+          sentiment: sentiment.score,
+          relevance: 95,
+          impact: sentiment.label === "positive" ? "high" : sentiment.label === "negative" ? "high" : "medium",
+          tags: [symbol, "India Equity", "Live Web News"],
+        };
+      });
+    }
+  } catch (err) {
+    console.warn("Live Google News RSS fetch failed:", err);
+  }
+
+  return [];
 }
 
 function extractSymbols(title: string, knownSymbols: string[]): string[] {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { formatTradingViewSymbol } from "@/lib/tv-symbol-formatter";
 
 type Props = {
   symbol: string;
@@ -9,20 +10,7 @@ type Props = {
 
 export function TradingViewFinancials({ symbol, height = 480 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
-
-  const formatTvSymbol = (sym: string) => {
-    if (!sym) return "NSE:NIFTY";
-    const s = sym.toUpperCase().replace("-", "").trim();
-    if (s.includes("NIFTY") || s === "NIFTY50") return "NSE:NIFTY";
-    if (s.includes("BANKNIFTY")) return "NSE:BANKNIFTY";
-    if (s.includes("VIX") || s === "INDIAVIX") return "NSE:INDIAVIX";
-    if (s === "GOLD" || s === "SILVER" || s === "CRUDEOIL") return `MCX:${s}1!`;
-    if (s === "USDINR" || s === "USD/INR") return "FX_IDC:USDINR";
-    if (s.startsWith("NSE:") || s.startsWith("BSE:") || s.startsWith("MCX:")) return s;
-    return `NSE:${s}`;
-  };
-
-  const tvSymbol = formatTvSymbol(symbol);
+  const tvSymbol = formatTradingViewSymbol(symbol);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -55,16 +43,24 @@ export function TradingViewFinancials({ symbol, height = 480 }: Props) {
   return (
     <div
       className="panel"
-      style={{ padding: 16, height: "100%", minHeight: 450 }}
+      style={{
+        padding: 20,
+        height: "100%",
+        minHeight: 480,
+        display: "flex",
+        flexDirection: "column",
+        wordBreak: "break-word",
+      }}
     >
       <h3 style={{ margin: "0 0 12px 0", fontSize: "1.05rem" }}>TradingView Financials & Fundamental Suite</h3>
       <div
         className="tradingview-widget-container"
         ref={containerRef}
         style={{
+          flex: 1,
           height: typeof height === "number" ? `${height}px` : height,
           width: "100%",
-          overflow: "hidden",
+          overflowY: "auto",
         }}
       />
     </div>
