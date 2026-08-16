@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { TradingViewChart } from "./trading-view-chart";
+import { TradingViewSymbolOverview } from "./tradingview/symbol-overview";
+import { TradingViewFinancials } from "./tradingview/financials-widget";
 import type { AssetRecord } from "@/lib/types";
-import { Maximize2, Grid, Layers } from "lucide-react";
+import { Maximize2, Grid, Layers, BarChart2, DollarSign } from "lucide-react";
 
 type Props = {
   allAssets: AssetRecord[];
@@ -12,8 +13,7 @@ type Props = {
 export function MultiChartMatrix({ allAssets }: Props) {
   const [layout, setLayout] = useState<"1x1" | "2x1" | "2x2">("2x2");
   const [selectedSlugs, setSelectedSlugs] = useState<string[]>([]);
-  const [stylesMap, setStylesMap] = useState<Record<number, string>>({});
-  const [intervalsMap, setIntervalsMap] = useState<Record<number, string>>({});
+  const [viewModesMap, setViewModesMap] = useState<Record<number, "overview" | "financials">>({});
 
   useEffect(() => {
     if (allAssets.length > 0 && selectedSlugs.length === 0) {
@@ -40,12 +40,8 @@ export function MultiChartMatrix({ allAssets }: Props) {
     setSelectedSlugs(next);
   }
 
-  function handleStyleChange(index: number, styleVal: string) {
-    setStylesMap((prev) => ({ ...prev, [index]: styleVal }));
-  }
-
-  function handleIntervalChange(index: number, intervalVal: string) {
-    setIntervalsMap((prev) => ({ ...prev, [index]: intervalVal }));
+  function handleViewModeChange(index: number, mode: "overview" | "financials") {
+    setViewModesMap((prev) => ({ ...prev, [index]: mode }));
   }
 
   return (
@@ -55,7 +51,7 @@ export function MultiChartMatrix({ allAssets }: Props) {
           <div>
             <h3>Multi-Chart TradingView Matrix</h3>
             <p className="muted">
-              Side-by-side technical charting matrix with customizable styles, timeframes, and drawing tools.
+              Side-by-side TradingView Symbol Overview area charts and institutional fundamental data.
             </p>
           </div>
 
@@ -85,8 +81,7 @@ export function MultiChartMatrix({ allAssets }: Props) {
           {Array.from({ length: activeCount }).map((_, idx) => {
             const currentSlug = selectedSlugs[idx] ?? allAssets[idx]?.slug ?? "";
             const currentAsset = allAssets.find((a) => a.slug === currentSlug);
-            const currentStyle = stylesMap[idx] ?? "1";
-            const currentInterval = intervalsMap[idx] ?? "D";
+            const viewMode = viewModesMap[idx] ?? "overview";
 
             return (
               <div
@@ -96,12 +91,12 @@ export function MultiChartMatrix({ allAssets }: Props) {
                   padding: 14,
                   backgroundColor: "rgba(5, 12, 20, 0.98)",
                   borderColor: "var(--border-strong)",
-                  minHeight: layout === "1x1" ? 520 : 380,
+                  minHeight: layout === "1x1" ? 540 : 420,
                   display: "flex",
                   flexDirection: "column",
                 }}
               >
-                {/* Control Bar: High Contrast Asset Selector Dropdown + Style & Frequency Controls */}
+                {/* Control Bar: High Contrast Asset Dropdown + View Mode Toggle */}
                 <div
                   style={{
                     display: "flex",
@@ -110,7 +105,7 @@ export function MultiChartMatrix({ allAssets }: Props) {
                     marginBottom: 10,
                     gap: 8,
                     flexWrap: "wrap",
-                    background: "rgba(15, 23, 42, 0.9)",
+                    background: "rgba(15, 23, 42, 0.95)",
                     padding: "8px 12px",
                     borderRadius: 8,
                     border: "1px solid var(--border-accent)",
@@ -144,71 +139,40 @@ export function MultiChartMatrix({ allAssets }: Props) {
                     ))}
                   </select>
 
-                  {/* Frequency Controls */}
+                  {/* View Mode Toggle: Symbol Overview (Area Chart) vs Financials */}
                   <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                    <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>Freq:</span>
-                    {["15", "60", "D", "W", "M"].map((freq) => (
-                      <button
-                        key={freq}
-                        className={`button ${currentInterval === freq ? "button-primary" : "button-subtle"}`}
-                        style={{ padding: "2px 6px", fontSize: "0.72rem" }}
-                        onClick={() => handleIntervalChange(idx, freq)}
-                      >
-                        {freq === "15" ? "15m" : freq === "60" ? "1h" : freq}
-                      </button>
-                    ))}
-                  </div>
+                    <button
+                      className={`button ${viewMode === "overview" ? "button-primary" : "button-subtle"}`}
+                      style={{ padding: "4px 8px", fontSize: "0.78rem" }}
+                      onClick={() => handleViewModeChange(idx, "overview")}
+                    >
+                      <BarChart2 size={13} style={{ marginRight: 4 }} /> Symbol Overview (Area)
+                    </button>
 
-                  {/* Style Controls */}
-                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                    <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>Style:</span>
                     <button
-                      className={`button ${currentStyle === "1" ? "button-primary" : "button-subtle"}`}
-                      style={{ padding: "2px 6px", fontSize: "0.72rem" }}
-                      onClick={() => handleStyleChange(idx, "1")}
+                      className={`button ${viewMode === "financials" ? "button-primary" : "button-subtle"}`}
+                      style={{ padding: "4px 8px", fontSize: "0.78rem" }}
+                      onClick={() => handleViewModeChange(idx, "financials")}
                     >
-                      Candle
-                    </button>
-                    <button
-                      className={`button ${currentStyle === "8" ? "button-primary" : "button-subtle"}`}
-                      style={{ padding: "2px 6px", fontSize: "0.72rem" }}
-                      onClick={() => handleStyleChange(idx, "8")}
-                    >
-                      Heikin
-                    </button>
-                    <button
-                      className={`button ${currentStyle === "3" ? "button-primary" : "button-subtle"}`}
-                      style={{ padding: "2px 6px", fontSize: "0.72rem" }}
-                      onClick={() => handleStyleChange(idx, "3")}
-                    >
-                      Area
-                    </button>
-                    <button
-                      className={`button ${currentStyle === "2" ? "button-primary" : "button-subtle"}`}
-                      style={{ padding: "2px 6px", fontSize: "0.72rem" }}
-                      onClick={() => handleStyleChange(idx, "2")}
-                    >
-                      Line
+                      <DollarSign size={13} style={{ marginRight: 4 }} /> Fundamentals
                     </button>
                   </div>
-
-                  {currentAsset && (
-                    <span className="pill pill-active" style={{ fontSize: "0.78rem" }}>
-                      ₹{currentAsset.lastPrice.toLocaleString("en-IN")}
-                    </span>
-                  )}
                 </div>
 
-                {/* TradingView Chart Container */}
-                <div style={{ flex: 1, minHeight: layout === "1x1" ? 440 : 300 }}>
-                  <TradingViewChart
-                    symbol={currentAsset?.symbol || "RELIANCE"}
-                    assetName={currentAsset?.name}
-                    height="100%"
-                    hideHeader={true}
-                    initialStyle={currentStyle}
-                    initialInterval={currentInterval}
-                  />
+                {/* Main Widget Area */}
+                <div style={{ flex: 1, minHeight: layout === "1x1" ? 460 : 340 }}>
+                  {viewMode === "overview" ? (
+                    <TradingViewSymbolOverview
+                      symbol={currentAsset?.symbol || "RELIANCE"}
+                      chartType="area"
+                      height="100%"
+                    />
+                  ) : (
+                    <TradingViewFinancials
+                      symbol={currentAsset?.symbol || "RELIANCE"}
+                      height="100%"
+                    />
+                  )}
                 </div>
               </div>
             );

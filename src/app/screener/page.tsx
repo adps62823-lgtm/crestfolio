@@ -1,12 +1,9 @@
-import { ScreenerStudio } from "@/components/screener-studio";
-import { listScreenerPresets, getUniverseFacets } from "@/server/repository";
+import { TradingViewScreener } from "@/components/tradingview/screener-widget";
 
-export default async function ScreenerPage() {
-  const [presets, facets] = await Promise.all([listScreenerPresets(), getUniverseFacets()]);
-
+export default function ScreenerPage() {
   return (
-    <main className="fade-up">
-      <ScreenerStudio presets={presets} facets={facets} />
+    <main className="fade-up stack">
+      <TradingViewScreener />
     </main>
   );
 }
