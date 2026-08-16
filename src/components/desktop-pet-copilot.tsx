@@ -17,7 +17,7 @@ import {
   Globe,
 } from "lucide-react";
 import { FormattedMarkdown } from "./formatted-markdown";
-import { createVoiceRecognizer, speakText } from "@/lib/speech";
+import { createVoiceRecognizer, speakText, stopSpeech } from "@/lib/speech";
 
 const IDLE_INSIGHTS = [
   "Nifty 50 TRI momentum score is holding strong at 78/100.",
@@ -44,7 +44,7 @@ export function DesktopPetCopilot() {
     {
       role: "assistant",
       content:
-        "Hello! I am CrestBot, your AI Copilot powered by Google Gemini and Edge Neural Male Voice. Ask me anything in English or Hindi!",
+        "Hello! I am CrestBot, your AI Copilot powered by Google Gemini. Ask me anything in English or Hindi!",
     },
   ]);
   const [isLoading, setIsLoading] = useState(false);
@@ -75,6 +75,7 @@ export function DesktopPetCopilot() {
       audioRef.current.pause();
       audioRef.current = null;
     }
+    stopSpeech();
     setIsSpeaking(false);
   };
 
@@ -100,30 +101,35 @@ export function DesktopPetCopilot() {
 
       if (res.ok) {
         const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        const audio = new Audio(url);
-        audioRef.current = audio;
+        if (blob.size > 100) {
+          const url = URL.createObjectURL(blob);
+          const audio = new Audio(url);
+          audioRef.current = audio;
 
-        audio.onended = () => setIsSpeaking(false);
-        audio.onerror = () => {
-          setIsSpeaking(false);
-          fallbackToWebSpeech();
-        };
+          audio.onended = () => setIsSpeaking(false);
+          audio.onerror = () => {
+            setIsSpeaking(false);
+            fallbackToWebSpeech();
+          };
 
-        await audio.play().catch((playErr) => {
-          console.warn("Audio play prevented or failed, using SpeechSynthesis:", playErr);
-          fallbackToWebSpeech();
-        });
-      } else {
-        fallbackToWebSpeech();
+          const playPromise = audio.play();
+          if (playPromise !== undefined) {
+            await playPromise.catch((playErr) => {
+              console.warn("Audio play prevented by browser, using Web Speech API fallback:", playErr);
+              fallbackToWebSpeech();
+            });
+          }
+          return;
+        }
       }
+      fallbackToWebSpeech();
     } catch (err) {
       console.warn("TTS API failed, falling back to Web Speech API:", err);
       fallbackToWebSpeech();
     }
   };
 
-  const handleSend = async (textToSend?: string) => {
+  const handleSend = async (textToSend?: string, isVoiceInput: boolean = false) => {
     const text = textToSend || input;
     if (!text.trim() || isLoading) return;
 
@@ -147,7 +153,11 @@ export function DesktopPetCopilot() {
       const data = await res.json();
       if (res.ok && data.reply) {
         setMessages((prev) => [...prev, { role: "assistant", content: data.reply }]);
-        playEdgeTts(data.reply, Boolean(data.isHindi));
+        
+        // ONLY trigger voice audio output if the user gave voice input!
+        if (isVoiceInput) {
+          playEdgeTts(data.reply, Boolean(data.isHindi));
+        }
       } else {
         const errText = `Error: ${data.error || "Failed to reach Gemini API"}`;
         setMessages((prev) => [...prev, { role: "assistant", content: errText }]);
@@ -166,11 +176,17 @@ export function DesktopPetCopilot() {
       return;
     }
 
+    // Prime speech synthesis on user click gesture so audio playback is allowed
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.resume();
+    }
+
     const recognizer = createVoiceRecognizer(
       (transcript) => {
         setInput(transcript);
         setIsListening(false);
-        handleSend(transcript);
+        // Pass isVoiceInput = true so CrestBot replies with voice output!
+        handleSend(transcript, true);
       },
       (err) => {
         console.warn("Speech recognition error:", err);
@@ -256,7 +272,7 @@ export function DesktopPetCopilot() {
                     }}
                   />
                   <p className="muted" style={{ margin: 0, fontSize: "0.72rem" }}>
-                    {isSpeaking ? "Male Neural Voice (Edge TTS)..." : "Google Search Default (English)"}
+                    {isSpeaking ? "Voice Output Active..." : "Voice Input -> Voice Reply"}
                   </p>
                 </div>
               </div>
@@ -266,7 +282,7 @@ export function DesktopPetCopilot() {
               <button
                 className="button button-subtle"
                 style={{ padding: 6, color: isTtsEnabled ? "var(--accent)" : "var(--muted)" }}
-                title={isTtsEnabled ? "Mute Edge Male Voice" : "Enable Male Neural Voice"}
+                title={isTtsEnabled ? "Mute Voice Output" : "Enable Voice Output"}
                 onClick={() => {
                   stopAudio();
                   setIsTtsEnabled(!isTtsEnabled);

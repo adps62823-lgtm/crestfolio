@@ -11,17 +11,24 @@ type Props = {
 
 export function MultiChartMatrix({ allAssets }: Props) {
   const [layout, setLayout] = useState<"1x1" | "2x1" | "2x2">("2x2");
-  const [selectedSlugs, setSelectedSlugs] = useState<string[]>([
-    "parag-parikh-flexi-cap",
-    "reliance-industries",
-    "hdfc-bank",
-    "gold",
-  ]);
+  const [selectedSlugs, setSelectedSlugs] = useState<string[]>([]);
   const [barsMap, setBarsMap] = useState<Record<string, PriceBar[]>>({});
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    if (allAssets.length > 0 && selectedSlugs.length === 0) {
+      setSelectedSlugs([
+        allAssets[0]?.slug ?? "",
+        allAssets[1]?.slug ?? allAssets[0]?.slug ?? "",
+        allAssets[2]?.slug ?? allAssets[0]?.slug ?? "",
+        allAssets[3]?.slug ?? allAssets[0]?.slug ?? "",
+      ]);
+    }
+  }, [allAssets, selectedSlugs.length]);
+
+  useEffect(() => {
     async function loadBars() {
+      if (selectedSlugs.length === 0) return;
       setLoading(true);
       const newMap: Record<string, PriceBar[]> = {};
       for (const slug of selectedSlugs) {
@@ -89,7 +96,7 @@ export function MultiChartMatrix({ allAssets }: Props) {
           </div>
         </div>
 
-        <div style={{ display: "grid", gap: 16, marginTop: 8, ...gridStyle }}>
+        <div style={{ display: "grid", gap: 16, marginTop: 16, ...gridStyle }}>
           {Array.from({ length: activeCount }).map((_, idx) => {
             const currentSlug = selectedSlugs[idx] ?? allAssets[idx]?.slug ?? "";
             const currentAsset = allAssets.find((a) => a.slug === currentSlug);
@@ -103,6 +110,7 @@ export function MultiChartMatrix({ allAssets }: Props) {
                   padding: 16,
                   backgroundColor: "rgba(5, 12, 20, 0.95)",
                   borderColor: "var(--border-strong)",
+                  minHeight: 380,
                 }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12, gap: 12 }}>

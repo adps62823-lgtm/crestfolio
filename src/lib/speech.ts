@@ -18,30 +18,38 @@ export function speakText(
 ) {
   if (typeof window === "undefined" || !("speechSynthesis" in window)) {
     console.warn("Web Speech Synthesis is not supported in this browser.");
+    options?.onEnd?.();
     return;
   }
 
   window.speechSynthesis.cancel(); // Stop any previous speech
+  window.speechSynthesis.resume(); // Ensure speech synthesis is resumed if paused by browser
 
   const clean = cleanTextForSpeech(text);
-  if (!clean.trim()) return;
+  if (!clean.trim()) {
+    options?.onEnd?.();
+    return;
+  }
 
   const utterance = new SpeechSynthesisUtterance(clean);
-  const targetLang = options?.lang || "hi-IN";
+  const targetLang = options?.lang || "en-IN";
   utterance.lang = targetLang;
   utterance.rate = 1.0;
   utterance.pitch = 1.0;
 
-  // Try to find natural neural voice for India / Hindi
-  const voices = window.speechSynthesis.getVoices();
-  const selectedVoice =
-    voices.find((v) => v.lang === "hi-IN" || v.name.includes("Hindi") || v.name.includes("India")) ||
-    voices.find((v) => v.lang.startsWith("en-IN") || v.lang.startsWith("hi")) ||
-    voices[0];
+  const applyVoice = () => {
+    const voices = window.speechSynthesis.getVoices();
+    const selectedVoice =
+      voices.find((v) => v.lang === targetLang || v.name.includes("India") || v.name.includes("Hindi")) ||
+      voices.find((v) => v.lang.startsWith("en") || v.lang.startsWith("hi")) ||
+      voices[0];
 
-  if (selectedVoice) {
-    utterance.voice = selectedVoice;
-  }
+    if (selectedVoice) {
+      utterance.voice = selectedVoice;
+    }
+  };
+
+  applyVoice();
 
   if (options?.onStart) utterance.onstart = options.onStart;
   if (options?.onEnd) utterance.onend = options.onEnd;
@@ -59,7 +67,7 @@ export function stopSpeech() {
 export function createVoiceRecognizer(
   onResult: (transcript: string) => void,
   onError?: (err: string) => void,
-  lang: "hi-IN" | "en-IN" = "hi-IN",
+  lang: "hi-IN" | "en-IN" = "en-IN",
 ) {
   if (typeof window === "undefined") return null;
 

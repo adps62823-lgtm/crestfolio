@@ -111,9 +111,16 @@ export type EventItem = {
 export type ResearchNote = {
   id: string;
   title: string;
-  assetSlug: string | null;
+  assetSlug?: string | null;
+  assetId?: string | null;
   body: string;
-  thesis: string;
+  bodyMarkdown?: string;
+  thesis?: string;
+  thesisTags?: string[];
+  conviction?: number;
+  persona?: string;
+  version?: number;
+  previousVersionId?: string | null;
   status: NoteStatus;
   createdAt: string;
   updatedAt: string;
@@ -266,3 +273,142 @@ export type LiveOverview = {
   sourceRuns: SourceRun[];
 };
 
+export type BasketAllocation = {
+  assetId: string;
+  weightPct: number;
+};
+
+export type BacktestRequest = {
+  mode: "sip" | "lumpsum";
+  startDate: string;
+  endDate: string;
+  basket: BasketAllocation[];
+  lumpsumAmount?: number;
+  monthlyAmount?: number;
+};
+
+export type BacktestResult = {
+  mode: "sip" | "lumpsum";
+  investedAmount: number;
+  finalValue: number;
+  cagr: number;
+  xirr: number | null;
+  sharpeRatio: number;
+  sortinoRatio: number;
+  maxDrawdown: number;
+  volatilityAnnualized: number;
+  navSeries: { date: string; value: number }[];
+};
+
+export type ShockEvent = {
+  id: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  description: string;
+};
+
+export type ShockTestResult = {
+  shock: ShockEvent;
+  basketDrawdownPct: number;
+  recoveryDays: number | null;
+  worstAsset: { assetId: string; drawdownPct: number };
+  bestAsset: { assetId: string; drawdownPct: number };
+};
+
+export type ScenarioInput = {
+  variable: string;
+  delta: number;
+  rateHikeBps?: number;
+  oilPriceChangePct?: number;
+  niftyChangePct?: number;
+};
+
+export type ScenarioImpact = {
+  sector: string;
+  direction: "positive" | "negative";
+  magnitude: "low" | "medium" | "high";
+  rationale: string;
+  affectedNames: string[];
+  name?: string;
+  estimatedReturnPct?: number;
+  confidence?: string;
+};
+
+export type TaxLot = {
+  assetId: string;
+  buyPrice: number;
+  currentPrice: number;
+  units: number;
+  buyDate: string;
+  isEquityOriented: boolean;
+  purchaseDate?: string;
+  quantity?: number;
+};
+
+export type TaxHarvestSuggestion = {
+  lot: TaxLot;
+  gainType?: "LTCG" | "STCG";
+  unrealizedGainLoss: number;
+  action: string;
+  rationale?: string;
+  taxType?: "STCG" | "LTCG";
+};
+
+export type AlertBriefing = {
+  date?: string;
+  bullets: string[];
+  dispatchedTo: string[];
+  dispatchedAt?: string | null;
+  smaCrosses?: string[];
+  navUpdates?: number;
+};
+
+export type ForensicFlag = {
+  metric?: string;
+  severity: "low" | "medium" | "high" | "red" | "amber" | "green";
+  detail?: string;
+  message?: string;
+};
+
+export type ForensicScore = {
+  overallScore?: number;
+  assetId?: string;
+  asOf?: string;
+  altmanZScore?: number | null;
+  altmanZone?: "safe" | "grey" | "distress" | null;
+  beneishMScore?: number | null;
+  beneishFlag?: "likely_manipulator" | "unlikely" | null;
+  promoterPledgePct?: number | null;
+  workingCapitalDaysYoyChangePct?: number | null;
+  receivableDaysYoyChangePct?: number | null;
+  revenueGrowthYoyPct?: number | null;
+  flags: ForensicFlag[];
+};
+
+export type LayoutPreset = {
+  id: string;
+  name: string;
+  hotkey?: string;
+  panels?: Array<{ component: string; position: string }>;
+  components?: string[];
+};
+
+export type MacroRatio = {
+  name: string;
+  date?: string;
+  value?: number;
+  ratio?: number;
+  zScore1y?: number;
+  interpretation: string;
+};
+
+export type SectorMomentum = {
+  sector: string;
+  momentumScore?: number;
+  relativeStrength?: number;
+  r1w?: number;
+  r1m?: number;
+  r3m?: number;
+  flowDirection?: "inflow" | "outflow" | "neutral";
+};

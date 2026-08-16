@@ -126,3 +126,12 @@ export function scoreConviction(args: {
     (100 - args.risk) * 0.16;
   return Math.max(0, Math.min(100, Math.round(base)));
 }
+
+export function trailingVolatility(values: number[], _period?: number) {
+  return annualizedVolatility(values);
+}
+
+export function cagr(initial: number, final: number, years: number) {
+  if (initial <= 0 || years <= 0) return 0;
+  return round(((final / initial) ** (1 / years) - 1) * 100, 2);
+}

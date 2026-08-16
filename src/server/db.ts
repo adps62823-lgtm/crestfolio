@@ -32,6 +32,40 @@ export function getPool(): Pool {
   return globalDb.__crestfolioPool;
 }
 
+export function getDb() {
+  const pool = getPool();
+  return {
+    pool,
+    prepare(text: string) {
+      let index = 1;
+      const pgText = text
+        .replace(/\?/g, () => `$${index++}`)
+        .replace(/INSERT OR IGNORE/gi, "INSERT")
+        .replace(/INSERT OR REPLACE/gi, "INSERT");
+      return {
+        get(...args: any[]): any {
+          const params = args.length === 1 && typeof args[0] === "object" && !Array.isArray(args[0]) ? Object.values(args[0]) : args.flat();
+          return pool.query(pgText, params).then((res) => res.rows[0] ?? null);
+        },
+        all(...args: any[]): any {
+          const params = args.length === 1 && typeof args[0] === "object" && !Array.isArray(args[0]) ? Object.values(args[0]) : args.flat();
+          return pool.query(pgText, params).then((res) => res.rows);
+        },
+        run(...args: any[]): any {
+          const params = args.length === 1 && typeof args[0] === "object" && !Array.isArray(args[0]) ? Object.values(args[0]) : args.flat();
+          return pool.query(pgText, params);
+        },
+      };
+    },
+    exec(text: string): any {
+      return pool.query(text);
+    },
+    transaction(fn: Function): any {
+      return fn();
+    },
+  };
+}
+
 export async function ensureSchema(): Promise<void> {
   if (!globalDb.__crestfolioReadyPromise) {
     globalDb.__crestfolioReadyPromise = (async () => {

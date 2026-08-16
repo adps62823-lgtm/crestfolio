@@ -864,13 +864,13 @@ export const sourceSeeds = [
     url: "https://www.mospi.gov.in/dashboard/dashboard/cpi",
   },
   {
-    key: "ollama",
-    name: "Local Ollama copilot",
-    status: "optional",
+    key: "gemini",
+    name: "CrestBot (Google Gemini AI)",
+    status: "active",
     cadence: "instant",
-    freshness: "local",
-    notes: "Private AI research layer, fallback to deterministic summaries when unavailable.",
-    url: "https://docs.ollama.com/quickstart",
+    freshness: "live",
+    notes: "Google Gemini 2.5 Flash market intelligence co-pilot.",
+    url: "https://ai.google.dev",
   },
 ];
 

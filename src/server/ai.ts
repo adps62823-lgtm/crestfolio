@@ -6,47 +6,46 @@ export type AiRequest = {
   persona?: string | null;
 };
 
-async function callOllama(prompt: string) {
-  const settings = await getSettings();
-  const baseUrl = process.env.OLLAMA_BASE_URL ?? settings.ollamaBaseUrl;
-  const model = process.env.OLLAMA_MODEL ?? settings.ollamaModel;
+async function callGemini(prompt: string) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return null;
 
-  try {
-    const response = await fetch(`${baseUrl}/api/chat`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+  const models = [
+    "gemini-2.5-flash",
+    "gemini-3.5-flash",
+    "gemini-3.6-flash",
+    "gemini-flash-latest",
+  ];
+  const payload = {
+    contents: [
+      {
+        role: "user",
+        parts: [{ text: prompt }],
       },
-      body: JSON.stringify({
-        model,
-        stream: false,
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are Crestfolio's institutional research analyst. Be concise, evidence-led, and skeptical. Always use the provided data context only. If data is missing, say what is missing. Return plain text, not markdown tables unless useful.",
-          },
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-      }),
-    });
+    ],
+  };
 
-    if (!response.ok) {
-      return null;
+  for (const model of models) {
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
+      if (res.ok) {
+        const data = await res.json();
+        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text) return text;
+      }
+    } catch {
+      // try next model
     }
-
-    const payload = (await response.json()) as {
-      message?: { content?: string };
-      response?: string;
-    };
-
-    return payload.message?.content ?? payload.response ?? null;
-  } catch {
-    return null;
   }
+
+  return null;
 }
 
 function buildPersonaRules(persona: string) {
@@ -74,8 +73,8 @@ function fallbackAnswer(context: {
     ...context.bullets.map((bullet) => `- ${bullet}`),
     "",
     context.assetName
-      ? `Verdict: ${context.assetName} is currently a ${context.assetClass ?? "research"} candidate worth monitoring with a bias toward evidence over narrative.`
-      : "Verdict: The current market mix looks best approached through a disciplined, evidence-first workflow.",
+      ? `Verdict: ${context.assetName} is currently a ${context.assetClass ?? "research"} candidate worth monitoring with a bias toward technical & fundamental data.`
+      : "Verdict: The current market mix looks best approached through a disciplined, data-first workflow.",
   ].join("\n");
 }
 
@@ -94,27 +93,25 @@ export async function generateAiResponse(input: AiRequest) {
     }
 
     const prompt = `
+System Instruction: You are CrestBot, the institutional market intelligence co-pilot for Crestfolio Pro.
 Persona: ${persona}
-Persona rules: ${personaRules}
+Rules: ${personaRules}
 
-Asset:
+Asset Details:
 Name: ${detail.asset.name}
 Symbol: ${detail.asset.symbol}
 Class: ${detail.asset.assetClass}
 Sector: ${detail.asset.sector}
 Benchmark: ${detail.asset.benchmark}
-Last price: ${detail.asset.lastPrice}
+Last price: ₹${detail.asset.lastPrice}
 1M return: ${detail.asset.return1M}%
 3M return: ${detail.asset.return3M}%
 6M return: ${detail.asset.return6M}%
 1Y return: ${detail.asset.return1Y}%
-Trend score: ${detail.asset.trendScore}
-Quality score: ${detail.asset.qualityScore}
-Valuation score: ${detail.asset.valuationScore}
-Sentiment score: ${detail.asset.sentimentScore}
-Conviction score: ${detail.asset.convictionScore}
-Risk score: ${detail.asset.riskScore}
-Watchlisted: ${detail.watchlisted ? "yes" : "no"}
+RSI (14): ${detail.asset.rsi14 ?? 50}
+Max Drawdown: ${detail.asset.maxDrawdown}%
+Volatility: ${detail.asset.volatility}%
+P/E Ratio: ${detail.asset.peRatio ?? "N/A"}
 
 Recent events:
 ${detail.events.slice(0, 4).map((event) => `- ${event.title} (${event.severity}, ${event.eventDate})`).join("\n")}
@@ -122,19 +119,18 @@ ${detail.events.slice(0, 4).map((event) => `- ${event.title} (${event.severity},
 Recent news:
 ${detail.news.slice(0, 4).map((news) => `- ${news.headline} [sentiment ${news.sentiment}]`).join("\n")}
 
-User request: ${input.message}
+User Question: ${input.message}
 
-Answer as an institutional analyst. Include:
-1. what matters most
-2. bull case
-3. bear case
-4. what to watch next
-5. final judgment
+Provide a crisp institutional market report with:
+1. Technical & Price Structure
+2. Bull & Bear Case
+3. Key Levels to Watch
+4. Analyst Verdict
 `;
 
-    const ollama = await callOllama(prompt);
-    if (ollama) {
-      return { answer: ollama, provider: "ollama", persona };
+    const geminiText = await callGemini(prompt);
+    if (geminiText) {
+      return { answer: geminiText, provider: "Google Gemini 2.5 Flash", persona };
     }
 
     return {
@@ -143,10 +139,10 @@ Answer as an institutional analyst. Include:
         assetName: detail.asset.name,
         assetClass: detail.asset.assetClass,
         bullets: [
-          `Trend score is ${detail.asset.trendScore} with conviction at ${detail.asset.convictionScore}.`,
+          `RSI (14) is at ${detail.asset.rsi14 ?? 50} with 1Y return at ${detail.asset.return1Y}%.`,
           `Recent news count: ${detail.news.length}; recent events count: ${detail.events.length}.`,
           `Primary risks: drawdown ${detail.asset.maxDrawdown}% and volatility ${detail.asset.volatility}%.`,
-          `Use ${detail.asset.benchmark} as the main comparison reference.`,
+          `Use ${detail.asset.benchmark} as the primary benchmark reference.`,
         ],
       }),
       provider: "fallback",
@@ -156,8 +152,9 @@ Answer as an institutional analyst. Include:
 
   const dashboard = await getDashboardSummary();
   const prompt = `
+System Instruction: You are CrestBot, the institutional market intelligence co-pilot for Crestfolio Pro.
 Persona: ${persona}
-Persona rules: ${personaRules}
+Rules: ${personaRules}
 
 Market briefing:
 Headline: ${dashboard.marketPulse.headline}
@@ -165,29 +162,24 @@ Score: ${dashboard.marketPulse.score}
 Watchlist count: ${dashboard.watchlist.length}
 Events: ${dashboard.recentEvents.length}
 News items: ${dashboard.recentNews.length}
-Research queue: ${dashboard.researchQueue.length}
 
-Top spotlights:
+Top Spotlights:
 ${dashboard.spotlight
   .slice(0, 6)
   .map(
     (asset) =>
-      `- ${asset.name} (${asset.symbol}) | trend ${asset.trendScore} | conviction ${asset.convictionScore} | risk ${asset.riskScore}`,
+      `- ${asset.name} (${asset.symbol}) | 1M: ${asset.return1M}% | RSI: ${asset.rsi14 ?? 50} | Volatility: ${asset.volatility}%`,
   )
   .join("\n")}
 
 User request: ${input.message}
 
-Give a concise research briefing with:
-1. market regime assessment
-2. what should be reviewed now
-3. where the strongest opportunities sit
-4. what would break the thesis
+Give a concise institutional research briefing covering market regime, top technical setups, key risks, and analyst conviction.
 `;
 
-  const ollama = await callOllama(prompt);
-  if (ollama) {
-    return { answer: ollama, provider: "ollama", persona };
+  const geminiText = await callGemini(prompt);
+  if (geminiText) {
+    return { answer: geminiText, provider: "Google Gemini 2.5 Flash", persona };
   }
 
   return {
@@ -223,4 +215,41 @@ export async function getCopilotContext(assetSlug?: string | null) {
     kind: "dashboard" as const,
     dashboard,
   };
+}
+
+export function scoreSentiment(text: string) {
+  const lower = text.toLowerCase();
+  const positiveWords = [
+    "profit",
+    "surge",
+    "growth",
+    "gain",
+    "up",
+    "bull",
+    "record",
+    "high",
+    "beat",
+    "rally",
+    "outperform",
+    "dividend",
+  ];
+  const negativeWords = [
+    "loss",
+    "fall",
+    "drop",
+    "down",
+    "bear",
+    "crash",
+    "low",
+    "miss",
+    "plunge",
+    "underperform",
+    "default",
+    "cut",
+  ];
+  let score = 0;
+  for (const word of positiveWords) if (lower.includes(word)) score += 1;
+  for (const word of negativeWords) if (lower.includes(word)) score -= 1;
+  const label = score > 0 ? "positive" : score < 0 ? "negative" : "neutral";
+  return { score, label };
 }

@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { AssetChart } from "@/components/asset-chart";
 import { AiAssistant } from "@/components/ai-assistant";
 import { ExportButtons } from "@/components/export-buttons";
+import { TechnicalMasterSuite } from "@/components/technical-master-suite";
+import { compute50TechnicalIndicators } from "@/server/utilities/technicalSuite";
 import { getAssetDetail } from "@/server/repository";
 import { formatCompactDate, formatCurrency, formatPercent } from "@/lib/format";
 
@@ -16,6 +18,7 @@ export default async function AssetPage({
   if (!detail) notFound();
 
   const { asset } = detail;
+  const indicators = compute50TechnicalIndicators(asset, detail.bars);
 
   return (
     <main className="fade-up stack">
@@ -40,15 +43,15 @@ export default async function AssetPage({
         </div>
 
         <div className="panel">
-          <h3>Scoreboard</h3>
+          <h3>Market Metrics</h3>
           <div className="meta-grid">
             {[
-              ["Trend", asset.trendScore],
-              ["Quality", asset.qualityScore],
-              ["Valuation", asset.valuationScore],
-              ["Sentiment", asset.sentimentScore],
-              ["Conviction", asset.convictionScore],
-              ["Risk", asset.riskScore],
+              ["RSI (14)", asset.rsi14 ?? "50"],
+              ["1M Return", formatPercent(asset.return1M)],
+              ["1Y Return", formatPercent(asset.return1Y)],
+              ["Volatility", `${asset.volatility}%`],
+              ["Max Drawdown", `${asset.maxDrawdown}%`],
+              ["P/E Ratio", asset.peRatio ?? "N/A"],
             ].map(([label, value]) => (
               <div className="meta" key={String(label)}>
                 <span>{label}</span>
@@ -57,26 +60,35 @@ export default async function AssetPage({
             ))}
           </div>
           <div style={{ marginTop: 14 }} className="pill-row">
-            <span className="pill pill-active">{formatPercent(asset.return1M)}</span>
-            <span className="pill">{formatPercent(asset.return3M)}</span>
-            <span className="pill">{formatPercent(asset.return6M)}</span>
-            <span className="pill">{formatPercent(asset.return1Y)}</span>
+            <span className="pill pill-active">{formatPercent(asset.return1W)} 1W</span>
+            <span className="pill">{formatPercent(asset.return1M)} 1M</span>
+            <span className="pill">{formatPercent(asset.return3M)} 3M</span>
+            <span className="pill">{formatPercent(asset.return6M)} 6M</span>
+            <span className="pill">{formatPercent(asset.return1Y)} 1Y</span>
           </div>
         </div>
       </section>
 
       <section className="section-grid">
-        <AssetChart bars={detail.bars} events={detail.events} />
+        <AssetChart
+          bars={detail.bars}
+          events={detail.events}
+          title="Technical Research Chart"
+          subtitle="Candlestick price action, SMA levels, and event markers."
+        />
 
         <div className="stack">
           <ExportButtons slug={asset.slug} />
           <AiAssistant
             assetSlug={asset.slug}
-            contextLabel={`Ask the copilot to review ${asset.symbol} using the current price, events, and news trail.`}
-            starterPrompt={`Assess ${asset.name} for an IMA-style research memo. Focus on what matters, what can go wrong, and what I should monitor next.`}
+            contextLabel={`Consult CrestBot (Google Gemini) for deep technical analysis on ${asset.symbol}.`}
+            starterPrompt={`Provide a detailed technical and fundamental analysis of ${asset.name} (${asset.symbol}). Highlight key support/resistance levels, RSI/MACD signals, and risks.`}
           />
         </div>
       </section>
+
+      {/* 50+ Technical & Fundamental Suite */}
+      <TechnicalMasterSuite indicators={indicators} assetName={asset.name} />
 
       <section className="section-grid">
         <div className="panel">
@@ -123,7 +135,7 @@ export default async function AssetPage({
                 <h4>{related.name}</h4>
                 <p>{related.description}</p>
                 <div className="pill-row" style={{ marginTop: 10 }}>
-                  <span className="pill pill-active">{related.convictionScore}</span>
+                  <span className="pill pill-active">RSI {related.rsi14 ?? 50}</span>
                   <span className="pill">{related.sector}</span>
                   <span className="pill">{formatPercent(related.return1M)}</span>
                 </div>
