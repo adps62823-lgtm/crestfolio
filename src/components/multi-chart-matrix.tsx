@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { TradingViewMiniChart } from "./tradingview/mini-chart";
+import { MatrixCanvasChart } from "./matrix-canvas-chart";
 import { TradingViewFinancials } from "./tradingview/financials-widget";
 import type { AssetRecord } from "@/lib/types";
 import { Maximize2, Grid, Layers, BarChart2, DollarSign } from "lucide-react";
@@ -13,8 +13,9 @@ type Props = {
 export function MultiChartMatrix({ allAssets }: Props) {
   const [layout, setLayout] = useState<"1x1" | "2x1" | "2x2">("2x2");
   const [selectedSlugs, setSelectedSlugs] = useState<string[]>([]);
-  const [viewModesMap, setViewModesMap] = useState<Record<number, "mini" | "financials">>({});
-  const [timeframesMap, setTimeframesMap] = useState<Record<number, "1D" | "1M" | "3M" | "12M">>({});
+  const [viewModesMap, setViewModesMap] = useState<Record<number, "chart" | "financials">>({});
+  const [chartStylesMap, setChartStylesMap] = useState<Record<number, "area" | "line" | "candlestick">>({});
+  const [timeframesMap, setTimeframesMap] = useState<Record<number, "1M" | "3M" | "6M" | "1Y">>({});
 
   useEffect(() => {
     if (allAssets.length > 0 && selectedSlugs.length === 0) {
@@ -41,11 +42,15 @@ export function MultiChartMatrix({ allAssets }: Props) {
     setSelectedSlugs(next);
   }
 
-  function handleViewModeChange(index: number, mode: "mini" | "financials") {
+  function handleViewModeChange(index: number, mode: "chart" | "financials") {
     setViewModesMap((prev) => ({ ...prev, [index]: mode }));
   }
 
-  function handleTimeframeChange(index: number, tf: "1D" | "1M" | "3M" | "12M") {
+  function handleStyleChange(index: number, style: "area" | "line" | "candlestick") {
+    setChartStylesMap((prev) => ({ ...prev, [index]: style }));
+  }
+
+  function handleTimeframeChange(index: number, tf: "1M" | "3M" | "6M" | "1Y") {
     setTimeframesMap((prev) => ({ ...prev, [index]: tf }));
   }
 
@@ -54,9 +59,9 @@ export function MultiChartMatrix({ allAssets }: Props) {
       <div className="panel">
         <div className="toolbar" style={{ flexWrap: "wrap", gap: 12 }}>
           <div>
-            <h3>Multi-Chart TradingView Matrix</h3>
+            <h3>Multi-Chart Research Matrix</h3>
             <p className="muted">
-              Side-by-side TradingView Mini Area/Line charts and institutional fundamental data.
+              Side-by-side technical price action charts (Area, Line, Candlestick) and fundamental financials.
             </p>
           </div>
 
@@ -86,8 +91,9 @@ export function MultiChartMatrix({ allAssets }: Props) {
           {Array.from({ length: activeCount }).map((_, idx) => {
             const currentSlug = selectedSlugs[idx] ?? allAssets[idx]?.slug ?? "";
             const currentAsset = allAssets.find((a) => a.slug === currentSlug);
-            const viewMode = viewModesMap[idx] ?? "mini";
-            const timeframe = timeframesMap[idx] ?? "12M";
+            const viewMode = viewModesMap[idx] ?? "chart";
+            const chartStyle = chartStylesMap[idx] ?? "area";
+            const timeframe = timeframesMap[idx] ?? "1Y";
 
             return (
               <div
@@ -97,12 +103,12 @@ export function MultiChartMatrix({ allAssets }: Props) {
                   padding: 14,
                   backgroundColor: "rgba(5, 12, 20, 0.98)",
                   borderColor: "var(--border-strong)",
-                  minHeight: layout === "1x1" ? 540 : 420,
+                  minHeight: layout === "1x1" ? 540 : 440,
                   display: "flex",
                   flexDirection: "column",
                 }}
               >
-                {/* Control Bar: High Contrast Asset Dropdown + View Mode & Timeframe Toggle */}
+                {/* Control Bar: High Contrast Dropdown + Style & Timeframe Controls */}
                 <div
                   style={{
                     display: "flex",
@@ -129,7 +135,7 @@ export function MultiChartMatrix({ allAssets }: Props) {
                       borderRadius: 6,
                       outline: "none",
                       cursor: "pointer",
-                      maxWidth: 240,
+                      maxWidth: 220,
                     }}
                     value={currentSlug}
                     onChange={(e) => handleSelectChange(idx, e.target.value)}
@@ -145,30 +151,47 @@ export function MultiChartMatrix({ allAssets }: Props) {
                     ))}
                   </select>
 
-                  {/* Timeframe Controls for Mini Area Chart */}
-                  {viewMode === "mini" && (
-                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                      {(["1D", "1M", "3M", "12M"] as const).map((tf) => (
-                        <button
-                          key={tf}
-                          className={`button ${timeframe === tf ? "button-primary" : "button-subtle"}`}
-                          style={{ padding: "2px 6px", fontSize: "0.72rem" }}
-                          onClick={() => handleTimeframeChange(idx, tf)}
-                        >
-                          {tf}
-                        </button>
-                      ))}
+                  {/* Controls for Chart View Mode */}
+                  {viewMode === "chart" && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      {/* Chart Style Switcher */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+                        {(["area", "line", "candlestick"] as const).map((st) => (
+                          <button
+                            key={st}
+                            className={`button ${chartStyle === st ? "button-primary" : "button-subtle"}`}
+                            style={{ padding: "2px 6px", fontSize: "0.72rem", textTransform: "capitalize" }}
+                            onClick={() => handleStyleChange(idx, st)}
+                          >
+                            {st}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Timeframe Switcher */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+                        {(["1M", "3M", "6M", "1Y"] as const).map((tf) => (
+                          <button
+                            key={tf}
+                            className={`button ${timeframe === tf ? "button-primary" : "button-subtle"}`}
+                            style={{ padding: "2px 6px", fontSize: "0.72rem" }}
+                            onClick={() => handleTimeframeChange(idx, tf)}
+                          >
+                            {tf}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   )}
 
-                  {/* View Mode Toggle: Mini Area Chart vs Financials */}
+                  {/* View Mode Toggle: Chart vs Financials */}
                   <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                     <button
-                      className={`button ${viewMode === "mini" ? "button-primary" : "button-subtle"}`}
+                      className={`button ${viewMode === "chart" ? "button-primary" : "button-subtle"}`}
                       style={{ padding: "4px 8px", fontSize: "0.78rem" }}
-                      onClick={() => handleViewModeChange(idx, "mini")}
+                      onClick={() => handleViewModeChange(idx, "chart")}
                     >
-                      <BarChart2 size={13} style={{ marginRight: 4 }} /> Mini Area Chart
+                      <BarChart2 size={13} style={{ marginRight: 4 }} /> Chart
                     </button>
 
                     <button
@@ -181,12 +204,15 @@ export function MultiChartMatrix({ allAssets }: Props) {
                   </div>
                 </div>
 
-                {/* Main Widget Area */}
+                {/* Main Content Area */}
                 <div style={{ flex: 1, minHeight: layout === "1x1" ? 440 : 340 }}>
-                  {viewMode === "mini" ? (
-                    <TradingViewMiniChart
+                  {viewMode === "chart" ? (
+                    <MatrixCanvasChart
+                      slug={currentAsset?.slug || "reliance-industries"}
+                      assetName={currentAsset?.name || "Reliance Industries"}
                       symbol={currentAsset?.symbol || "RELIANCE"}
-                      dateRange={timeframe}
+                      chartStyle={chartStyle}
+                      timeframe={timeframe}
                       height="100%"
                     />
                   ) : (
