@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { TradingViewChart } from "@/components/trading-view-chart";
+import { AssetChart } from "@/components/asset-chart";
 import { AiAssistant } from "@/components/ai-assistant";
 import { ExportButtons } from "@/components/export-buttons";
 import { TechnicalMasterSuite } from "@/components/technical-master-suite";
@@ -69,10 +69,14 @@ export default async function AssetPage({
         </div>
       </section>
 
-      {/* Single Responsive Complete TradingView Technical Chart Engine */}
-      <TradingViewChart symbol={asset.symbol} assetName={asset.name} height={560} />
-
       <section className="section-grid">
+        <AssetChart
+          bars={detail.bars}
+          events={detail.events}
+          title="Technical Research Chart"
+          subtitle="Candlestick price action, SMA levels, and event markers."
+        />
+
         <div className="stack">
           <ExportButtons slug={asset.slug} />
           <AiAssistant
@@ -80,27 +84,6 @@ export default async function AssetPage({
             contextLabel={`Consult CrestBot (Google Gemini) for deep technical analysis on ${asset.symbol}.`}
             starterPrompt={`Provide a detailed technical and fundamental analysis of ${asset.name} (${asset.symbol}). Highlight key support/resistance levels, RSI/MACD signals, and risks.`}
           />
-        </div>
-
-        <div className="panel">
-          <h3>Recent corporate events & catalysts</h3>
-          <div className="stack" style={{ marginTop: 12 }}>
-            {detail.events.length > 0 ? (
-              detail.events.map((event) => (
-                <div key={event.id} className="asset-card">
-                  <h4>{event.title}</h4>
-                  <p>{event.detail}</p>
-                  <div className="pill-row" style={{ marginTop: 10 }}>
-                    <span className="pill pill-active">{event.severity}</span>
-                    <span className="pill">{event.type}</span>
-                    <span className="pill">{formatCompactDate(event.eventDate)}</span>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p className="muted">No recent events recorded for this instrument.</p>
-            )}
-          </div>
         </div>
       </section>
 
@@ -126,6 +109,25 @@ export default async function AssetPage({
         </div>
 
         <div className="panel">
+          <h3>Recent events</h3>
+          <div className="stack" style={{ marginTop: 12 }}>
+            {detail.events.map((event) => (
+              <div key={event.id} className="asset-card">
+                <h4>{event.title}</h4>
+                <p>{event.detail}</p>
+                <div className="pill-row" style={{ marginTop: 10 }}>
+                  <span className="pill pill-active">{event.severity}</span>
+                  <span className="pill">{event.type}</span>
+                  <span className="pill">{formatCompactDate(event.eventDate)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="section-grid">
+        <div className="panel">
           <h3>Related names</h3>
           <div className="stack" style={{ marginTop: 12 }}>
             {detail.related.map((related) => (
@@ -138,6 +140,26 @@ export default async function AssetPage({
                   <span className="pill">{formatPercent(related.return1M)}</span>
                 </div>
               </Link>
+            ))}
+          </div>
+        </div>
+
+        <div className="panel">
+          <h3>Research notes</h3>
+          <div className="stack" style={{ marginTop: 12 }}>
+            {detail.notes.map((note) => (
+              <div key={note.id} className="asset-card">
+                <h4>{note.title}</h4>
+                <p>{note.thesis}</p>
+                <div className="pill-row" style={{ marginTop: 10 }}>
+                  <span className="pill pill-active">{note.status}</span>
+                  {note.tags.slice(0, 2).map((tag) => (
+                    <span className="pill" key={tag}>
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
         </div>
